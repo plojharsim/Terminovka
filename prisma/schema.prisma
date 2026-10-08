@@ -69,6 +69,7 @@ model Event {
   endTime         String?       // "08:45"
   period          Int?          // Period number if linked to a lesson
   weight          Int?          // Anticipated grade weight (e.g. 1 to 10)
+  recurringId     String?       // Shared identifier for recurring event series
   description     String?
   attachmentUrl   String?
   subjectId       String?
@@ -82,6 +83,7 @@ model Event {
 
   @@index([date])
   @@index([type])
+  @@index([recurringId])
 }
 
 model AppConfig {

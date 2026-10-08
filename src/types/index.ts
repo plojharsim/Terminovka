@@ -40,6 +40,7 @@ export interface EventItem {
   endTime?: string | null;
   period?: number | null;
   weight?: number | null;
+  recurringId?: string | null;
   description?: string | null;
   attachmentUrl?: string | null;
   subjectId?: string | null;

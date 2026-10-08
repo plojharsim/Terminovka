@@ -20,6 +20,7 @@ import {
   formatUpcomingTermsCount,
   toLocalDateString,
   getEventDateString,
+  computeEventCounts,
 } from "@/lib/formatters";
 import {
   PERIOD_TIMES,
@@ -198,13 +199,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return daysList;
   }, [todayDate, events, slots, mounted]);
 
-  // Stats
+  // Stats (primary upcoming count and extra recurring count)
   const stats = useMemo(() => {
     return {
-      tests: upcomingEvents.filter((e) => e.type === "TEST").length,
-      homeworks: upcomingEvents.filter((e) => e.type === "HOMEWORK" || e.type === "DEADLINE").length,
-      other: upcomingEvents.filter((e) => e.type === "OTHER").length,
-      total: upcomingEvents.length,
+      tests: computeEventCounts(upcomingEvents.filter((e) => e.type === "TEST")),
+      homeworks: computeEventCounts(upcomingEvents.filter((e) => e.type === "HOMEWORK" || e.type === "DEADLINE")),
+      other: computeEventCounts(upcomingEvents.filter((e) => e.type === "OTHER")),
+      total: computeEventCounts(upcomingEvents),
     };
   }, [upcomingEvents]);
 
@@ -273,8 +274,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </strong>{" "}
                   a celkem{" "}
                   <strong className="text-[#0D0F26] dark:text-white">
-                    {formatUpcomingTermsCount(stats.total)}
+                    {formatUpcomingTermsCount(stats.total.primaryCount)}
                   </strong>
+                  {stats.total.recurringExtraCount > 0 && (
+                    <span className="text-slate-500 dark:text-slate-400 text-xs ml-1 font-semibold">
+                      (+ {stats.total.recurringExtraCount} opakovaných)
+                    </span>
+                  )}
                   .
                 </>
               ) : (
@@ -357,9 +363,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="w-2 h-2 rounded-full bg-rose-500" />
           </div>
           <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl sm:text-3xl font-black text-rose-600 dark:text-rose-400">
-              {stats.tests}
-            </span>
+            <div className="flex items-baseline space-x-1.5 flex-wrap">
+              <span className="text-2xl sm:text-3xl font-black text-rose-600 dark:text-rose-400">
+                {stats.tests.primaryCount}
+              </span>
+              {stats.tests.recurringExtraCount > 0 && (
+                <span className="text-[11px] font-bold text-rose-600 dark:text-rose-300 bg-rose-500/15 px-1.5 py-0.5 rounded-md">
+                  +{stats.tests.recurringExtraCount} opak.
+                </span>
+              )}
+            </div>
             <span className="text-[11px] font-semibold text-slate-400 flex items-center group-hover:text-rose-600 transition">
               Zobrazit <ChevronRight className="w-3 h-3 ml-0.5" />
             </span>
@@ -378,9 +391,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="w-2 h-2 rounded-full bg-blue-500" />
           </div>
           <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl sm:text-3xl font-black text-blue-600 dark:text-blue-400">
-              {stats.homeworks}
-            </span>
+            <div className="flex items-baseline space-x-1.5 flex-wrap">
+              <span className="text-2xl sm:text-3xl font-black text-blue-600 dark:text-blue-400">
+                {stats.homeworks.primaryCount}
+              </span>
+              {stats.homeworks.recurringExtraCount > 0 && (
+                <span className="text-[11px] font-bold text-blue-600 dark:text-blue-300 bg-blue-500/15 px-1.5 py-0.5 rounded-md">
+                  +{stats.homeworks.recurringExtraCount} opak.
+                </span>
+              )}
+            </div>
             <span className="text-[11px] font-semibold text-slate-400 flex items-center group-hover:text-blue-600 transition">
               Zobrazit <ChevronRight className="w-3 h-3 ml-0.5" />
             </span>
@@ -399,9 +419,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <ListTodo className="w-3.5 h-3.5 text-slate-400" />
           </div>
           <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl sm:text-3xl font-black text-[#0D0F26] dark:text-white">
-              {stats.total}
-            </span>
+            <div className="flex items-baseline space-x-1.5 flex-wrap">
+              <span className="text-2xl sm:text-3xl font-black text-[#0D0F26] dark:text-white">
+                {stats.total.primaryCount}
+              </span>
+              {stats.total.recurringExtraCount > 0 && (
+                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/10 px-1.5 py-0.5 rounded-md">
+                  +{stats.total.recurringExtraCount} opak.
+                </span>
+              )}
+            </div>
             <span className="text-[11px] font-semibold text-slate-400 flex items-center group-hover:text-[#0D0F26] dark:group-hover:text-white transition">
               Agenda <ChevronRight className="w-3 h-3 ml-0.5" />
             </span>

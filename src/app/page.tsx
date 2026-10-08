@@ -19,7 +19,8 @@ import { CalendarMonthView } from "@/components/CalendarMonthView";
 import { AdminPanelModal } from "@/components/AdminPanelModal";
 import { DashboardView } from "@/components/DashboardView";
 import { GroupSelectionModal } from "@/components/GroupSelectionModal";
-import { formatCzechDate, getEventDateString, toLocalDateString } from "@/lib/formatters";
+import { DeleteRecurringModal } from "@/components/DeleteRecurringModal";
+import { formatCzechDate, getEventDateString, toLocalDateString, computeEventCounts } from "@/lib/formatters";
 import {
   Search,
   Plus,
@@ -154,12 +155,34 @@ export default function HomePage() {
     setCurrentUser(null);
   };
 
+  const [deletingRecurringEvent, setDeletingRecurringEvent] = useState<EventItem | null>(null);
+
   const handleDeleteEvent = async (id: string) => {
+    const targetEvent = events.find((ev) => ev.id === id);
+    if (targetEvent?.recurringId) {
+      setDeletingRecurringEvent(targetEvent);
+      return;
+    }
+
     if (!confirm("Opravdu chcete smazat tuto událost?")) return;
     try {
       const res = await fetch(`/api/events/${id}`, { method: "DELETE" });
       if (res.ok) {
         setEvents((prev) => prev.filter((ev) => ev.id !== id));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleConfirmDeleteRecurring = async (scope: "single" | "following" | "all") => {
+    if (!deletingRecurringEvent) return;
+    try {
+      const res = await fetch(`/api/events/${deletingRecurringEvent.id}?scope=${scope}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        loadAllData();
       }
     } catch (e) {
       console.error(e);
@@ -280,9 +303,10 @@ export default function HomePage() {
       : events;
 
     return {
-      tests: upcoming.filter((e) => e.type === "TEST").length,
-      homeworks: upcoming.filter((e) => e.type === "HOMEWORK" || e.type === "DEADLINE").length,
-      other: upcoming.filter((e) => e.type === "OTHER").length,
+      tests: computeEventCounts(upcoming.filter((e) => e.type === "TEST")),
+      homeworks: computeEventCounts(upcoming.filter((e) => e.type === "HOMEWORK" || e.type === "DEADLINE")),
+      other: computeEventCounts(upcoming.filter((e) => e.type === "OTHER")),
+      total: computeEventCounts(upcoming),
     };
   }, [events, clientToday]);
 
@@ -380,43 +404,67 @@ export default function HomePage() {
               <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                 <button
                   onClick={() => setTypeFilter("ALL")}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition ${
+                  className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition flex items-center space-x-1 ${
                     typeFilter === "ALL"
                       ? "bg-[#0D0F26] dark:bg-white text-white dark:text-[#0D0F26]"
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
-                  Vše ({events.length})
+                  <span>Vše ({stats.total.primaryCount}</span>
+                  {stats.total.recurringExtraCount > 0 && (
+                    <span className="opacity-80 text-[11px] font-semibold">
+                      +{stats.total.recurringExtraCount}
+                    </span>
+                  )}
+                  <span>)</span>
                 </button>
                 <button
                   onClick={() => setTypeFilter("TEST")}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition ${
+                  className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition flex items-center space-x-1 ${
                     typeFilter === "TEST"
                       ? "bg-rose-600 text-white"
                       : "text-slate-600 dark:text-slate-400 hover:text-rose-600"
                   }`}
                 >
-                  Písemky ({stats.tests})
+                  <span>Písemky ({stats.tests.primaryCount}</span>
+                  {stats.tests.recurringExtraCount > 0 && (
+                    <span className="opacity-80 text-[11px] font-semibold">
+                      +{stats.tests.recurringExtraCount}
+                    </span>
+                  )}
+                  <span>)</span>
                 </button>
                 <button
                   onClick={() => setTypeFilter("HOMEWORK")}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition ${
+                  className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition flex items-center space-x-1 ${
                     typeFilter === "HOMEWORK"
                       ? "bg-blue-600 text-white"
                       : "text-slate-600 dark:text-slate-400 hover:text-blue-600"
                   }`}
                 >
-                  Úkoly ({stats.homeworks})
+                  <span>Úkoly ({stats.homeworks.primaryCount}</span>
+                  {stats.homeworks.recurringExtraCount > 0 && (
+                    <span className="opacity-80 text-[11px] font-semibold">
+                      +{stats.homeworks.recurringExtraCount}
+                    </span>
+                  )}
+                  <span>)</span>
                 </button>
                 <button
                   onClick={() => setTypeFilter("OTHER")}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition ${
+                  className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition flex items-center space-x-1 ${
                     typeFilter === "OTHER"
                       ? "bg-slate-700 text-white"
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-700"
                   }`}
                 >
-                  Ostatní ({stats.other})
+                  <span>Ostatní ({stats.other.primaryCount}</span>
+                  {stats.other.recurringExtraCount > 0 && (
+                    <span className="opacity-80 text-[11px] font-semibold">
+                      +{stats.other.recurringExtraCount}
+                    </span>
+                  )}
+                  <span>)</span>
                 </button>
               </div>
 
@@ -649,6 +697,13 @@ export default function HomePage() {
           onDataRefresh={loadAllData}
         />
       )}
+
+      <DeleteRecurringModal
+        isOpen={!!deletingRecurringEvent}
+        event={deletingRecurringEvent}
+        onClose={() => setDeletingRecurringEvent(null)}
+        onConfirm={handleConfirmDeleteRecurring}
+      />
     </div>
   );
 }

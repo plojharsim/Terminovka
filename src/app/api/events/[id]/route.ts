@@ -137,7 +137,23 @@ export async function DELETE(
       );
     }
 
-    await prisma.event.delete({ where: { id } });
+    const searchParams = request.nextUrl.searchParams;
+    const scope = searchParams.get("scope") || "single"; // "single" | "following" | "all"
+
+    if (existing.recurringId && scope === "all") {
+      await prisma.event.deleteMany({
+        where: { recurringId: existing.recurringId },
+      });
+    } else if (existing.recurringId && scope === "following") {
+      await prisma.event.deleteMany({
+        where: {
+          recurringId: existing.recurringId,
+          date: { gte: existing.date },
+        },
+      });
+    } else {
+      await prisma.event.delete({ where: { id } });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

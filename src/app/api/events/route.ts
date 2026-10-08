@@ -144,6 +144,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const seriesRecurringId =
+      recurrenceType !== "NONE" && datesToCreate.length > 1
+        ? crypto.randomUUID()
+        : null;
+
     const createdEvents = [];
 
     for (const curDateStr of datesToCreate) {
@@ -190,6 +195,7 @@ export async function POST(request: NextRequest) {
           description: description ? description.trim() : null,
           attachmentUrl: attachmentUrl ? attachmentUrl.trim() : null,
           weight: weight != null && weight !== "" ? Number(weight) : null,
+          recurringId: seriesRecurringId,
           subjectId: cleanSubjectId,
           groupId: cleanGroupId,
           createdById: user.userId,

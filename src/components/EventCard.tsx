@@ -16,6 +16,7 @@ import {
   Trash2,
   MapPin,
   Users,
+  Repeat,
 } from "lucide-react";
 
 interface EventCardProps {
@@ -90,6 +91,14 @@ export const EventCard: React.FC<EventCardProps> = ({
             {event.weight != null && (
               <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300">
                 Váha {event.weight}
+              </span>
+            )}
+
+            {/* Recurring series indicator */}
+            {event.recurringId && (
+              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300" title="Opakovaná událost">
+                <Repeat className="w-3 h-3 text-[#DDA300]" />
+                <span>Série</span>
               </span>
             )}
           </div>

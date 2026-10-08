@@ -26,6 +26,12 @@ const prisma = new PrismaClient();
     } catch (e) {
       // Column already exists, safe to continue
     }
+    try {
+      await prisma.$executeRawUnsafe("ALTER TABLE Event ADD COLUMN recurringId TEXT;");
+      console.log("✅ Migration: Added recurringId column to Event table.");
+    } catch (e) {
+      // Column already exists, safe to continue
+    }
 
     const eventCount = await prisma.event.count();
     console.log(`📊 Databáze obsahuje celkem ${eventCount} událostí.`);

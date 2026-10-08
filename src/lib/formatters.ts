@@ -166,6 +166,24 @@ export function getRelativeTimeCzech(dateInput: string | Date): {
 }
 
 /**
+ * Calculates primary count and extra recurring count.
+ * Unique non-recurring events count as 1.
+ * Multiple events sharing a recurringId count as 1 primary, and the rest as recurring extra.
+ */
+export function computeEventCounts(evList: any[]): {
+  primaryCount: number;
+  recurringExtraCount: number;
+} {
+  const nonRecurring = evList.filter((e) => !e.recurringId);
+  const recurringGroups = new Set(
+    evList.filter((e) => e.recurringId).map((e) => e.recurringId)
+  );
+  const primaryCount = nonRecurring.length + recurringGroups.size;
+  const recurringExtraCount = evList.length - primaryCount;
+  return { primaryCount, recurringExtraCount };
+}
+
+/**
  * Czech inflection helper for count of lessons (hodina, hodiny, hodin)
  */
 export function formatHoursCount(count: number): string {
