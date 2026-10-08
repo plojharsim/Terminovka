@@ -1,0 +1,89 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("EDITOR") // ADMIN or EDITOR
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  events       Event[]
+}
+
+model Subject {
+  id           String         @id @default(cuid())
+  name         String
+  code         String         @unique
+  color        String         @default("#3b82f6") // hex color code
+  defaultRoom  String?
+  teacher      String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  events       Event[]
+  scheduleSlots ScheduleSlot[]
+}
+
+model StudentGroup {
+  id           String         @id @default(cuid())
+  name         String
+  code         String         @unique
+  isDefaultAll Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  events       Event[]
+  scheduleSlots ScheduleSlot[]
+}
+
+model ScheduleSlot {
+  id        String        @id @default(cuid())
+  dayOfWeek Int           // 1 = Pondělí, 2 = Úterý, 3 = Středa, 4 = Čtvrtek, 5 = Pátek
+  period    Int           // 1 to 10
+  startTime String        // e.g. "08:00"
+  endTime   String        // e.g. "08:45"
+  room      String?
+  weekType  String        @default("ALL") // "ALL" = Každý týden, "EVEN" = Sudý (S), "ODD" = Lichý (L)
+  subjectId String
+  subject   Subject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  groupId   String?
+  group     StudentGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([dayOfWeek, subjectId])
+}
+
+model Event {
+  id              String        @id @default(cuid())
+  title           String
+  type            String        // TEST, HOMEWORK, DEADLINE, OTHER
+  date            DateTime      // Date of the event
+  hasSpecificTime Boolean       @default(true)
+  startTime       String?       // "08:00"
+  endTime         String?       // "08:45"
+  period          Int?          // Period number if linked to a lesson
+  description     String?
+  attachmentUrl   String?
+  subjectId       String?
+  subject         Subject?      @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  groupId         String?
+  group           StudentGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  createdById     String
+  createdBy       User          @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([date])
+  @@index([type])
+}
+
+model AppConfig {
+  key   String @id
+  value String
+}

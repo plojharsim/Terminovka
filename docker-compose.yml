@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  terminovka:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: terminovka:latest
+    container_name: terminovka
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/data/prod.db
+      - AUTH_SECRET=${AUTH_SECRET:-super-secret-random-production-key-change-me}
+      - PORT=3000
+    volumes:
+      - terminovka_data:/app/data
+
+volumes:
+  terminovka_data:
+    driver: local

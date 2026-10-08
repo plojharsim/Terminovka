@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14183E" />
+      <stop offset="100%" stop-color="#090B1E" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE885" />
+      <stop offset="50%" stop-color="#DDA300" />
+      <stop offset="100%" stop-color="#B88200" />
+    </linearGradient>
+    <linearGradient id="shieldFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#181E4B" />
+      <stop offset="100%" stop-color="#0D0F26" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#DDA300" flood-opacity="0.35" />
+    </filter>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+  </defs>
+
+  <!-- App Rounded Squircle Container -->
+  <rect width="512" height="512" rx="115" fill="url(#bgGrad)" filter="url(#cardShadow)" />
+  <!-- Subtle border highlight -->
+  <rect x="2" y="2" width="508" height="508" rx="113" stroke="rgba(221, 163, 0, 0.25)" stroke-width="4" />
+
+  <!-- Shield Base (Smíchovská SPŠ Heritage) -->
+  <g filter="url(#glow)">
+    <path
+      d="M256 70 L400 115 V255 C400 355 335 430 256 460 C177 430 112 355 112 255 V115 Z"
+      fill="url(#shieldFill)"
+      stroke="url(#goldGrad)"
+      stroke-width="12"
+      stroke-linejoin="round"
+    />
+  </g>
+
+  <!-- Inner Golden Shield Inset -->
+  <path
+    d="M256 94 L378 132 V252 C378 334 322 398 256 426 C190 398 134 334 134 252 V132 Z"
+    stroke="url(#goldGrad)"
+    stroke-width="3"
+    stroke-opacity="0.45"
+  />
+
+  <!-- Calendar Page Grid / Agenda Symbolism inside shield -->
+  <!-- Top Calendar Header Bar -->
+  <rect x="176" y="160" width="160" height="34" rx="8" fill="url(#goldGrad)" />
+  <!-- Calendar Rings / Pins -->
+  <circle cx="212" cy="148" r="7" fill="#FFFFFF" />
+  <circle cx="300" cy="148" r="7" fill="#FFFFFF" />
+
+  <!-- Calendar Body with Check / Task Marks -->
+  <rect x="176" y="204" width="160" height="150" rx="12" fill="#0D0F26" stroke="rgba(255, 255, 255, 0.15)" stroke-width="4" />
+
+  <!-- Checkmark representing completed agenda / tests -->
+  <path
+    d="M206 270 L238 302 L306 230"
+    stroke="url(#goldGrad)"
+    stroke-width="16"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Subtle sparkling star in top right -->
+  <path
+    d="M380 95 Q380 120 405 120 Q380 120 380 145 Q380 120 355 120 Q380 120 380 95 Z"
+    fill="url(#goldGrad)"
+  />
+</svg>
