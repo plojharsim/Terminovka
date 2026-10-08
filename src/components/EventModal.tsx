@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { EventItem, Subject, StudentGroup, EventType, ScheduleSlot } from "@/types";
+import { toLocalDateString, getEventDateString } from "@/lib/formatters";
 import {
   X,
   Calendar,
@@ -72,7 +73,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   const getInitialDate = () => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
-    return d.toISOString().split("T")[0];
+    return toLocalDateString(d);
   };
 
   // Helper to intelligently resolve default group for a chosen subject:
@@ -111,7 +112,7 @@ export const EventModal: React.FC<EventModalProps> = ({
     if (editEvent) {
       setTitle(editEvent.title);
       setType(editEvent.type);
-      setDate(new Date(editEvent.date).toISOString().split("T")[0]);
+      setDate(getEventDateString(editEvent.date));
       setSubjectId(editEvent.subjectId || "none");
       setGroupId(editEvent.groupId || "ALL");
       setHasSpecificTime(editEvent.hasSpecificTime);

@@ -76,12 +76,35 @@ const CZ_DAYS_LONG = [
   "Sobota",
 ];
 
+export function toLocalDateString(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function getEventDateString(dateInput: string | Date): string {
+  if (typeof dateInput === "string") {
+    return dateInput.slice(0, 10);
+  }
+  return toLocalDateString(dateInput);
+}
+
 export function formatCzechDate(dateInput: string | Date): string {
+  if (typeof dateInput === "string" && dateInput.length >= 10) {
+    const [year, month, day] = dateInput.slice(0, 10).split("-").map(Number);
+    return `${day}. ${CZ_MONTHS[month - 1]} ${year}`;
+  }
   const d = new Date(dateInput);
   return `${d.getDate()}. ${CZ_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 export function formatCzechDateShort(dateInput: string | Date): string {
+  if (typeof dateInput === "string" && dateInput.length >= 10) {
+    const [year, month, day] = dateInput.slice(0, 10).split("-").map(Number);
+    const dayOfWeek = new Date(year, month - 1, day).getDay();
+    return `${CZ_DAYS_SHORT[dayOfWeek]} ${day}. ${month}.`;
+  }
   const d = new Date(dateInput);
   return `${CZ_DAYS_SHORT[d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}.`;
 }
@@ -96,13 +119,31 @@ export function getRelativeTimeCzech(dateInput: string | Date): {
   isPast: boolean;
 } {
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  const nowYear = now.getFullYear();
+  const nowMonth = now.getMonth();
+  const nowDay = now.getDate();
 
-  const target = new Date(dateInput);
-  target.setHours(0, 0, 0, 0);
+  let targetYear: number;
+  let targetMonth: number;
+  let targetDay: number;
 
-  const diffMs = target.getTime() - now.getTime();
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  if (typeof dateInput === "string" && dateInput.length >= 10) {
+    const parts = dateInput.slice(0, 10).split("-").map(Number);
+    targetYear = parts[0];
+    targetMonth = parts[1] - 1;
+    targetDay = parts[2];
+  } else {
+    const d = new Date(dateInput);
+    targetYear = d.getFullYear();
+    targetMonth = d.getMonth();
+    targetDay = d.getDate();
+  }
+
+  // Calculate calendar day difference purely using UTC midnights
+  const msPerDay = 86400000;
+  const utcNow = Date.UTC(nowYear, nowMonth, nowDay);
+  const utcTarget = Date.UTC(targetYear, targetMonth, targetDay);
+  const diffDays = Math.round((utcTarget - utcNow) / msPerDay);
 
   if (diffDays < 0) {
     if (diffDays === -1) return { text: "Včera", isUrgent: false, isPast: true };

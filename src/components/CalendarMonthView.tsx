@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { EventItem } from "@/types";
-import { formatCzechDate, EVENT_TYPE_CONFIG } from "@/lib/formatters";
+import { formatCzechDate, EVENT_TYPE_CONFIG, toLocalDateString, getEventDateString } from "@/lib/formatters";
 import {
   ChevronLeft,
   ChevronRight,
@@ -40,7 +40,7 @@ export const CalendarMonthView: React.FC<CalendarMonthViewProps> = ({
   useEffect(() => {
     const now = new Date();
     setCurrentDate(now);
-    setTodayStr(now.toISOString().split("T")[0]);
+    setTodayStr(toLocalDateString(now));
   }, []);
 
   const year = currentDate.getFullYear();
@@ -81,7 +81,7 @@ export const CalendarMonthView: React.FC<CalendarMonthViewProps> = ({
   for (let i = firstDayIndex - 1; i >= 0; i--) {
     const d = daysInPrevMonth - i;
     const prevMonthDate = new Date(year, month - 1, d);
-    const dateStr = prevMonthDate.toISOString().split("T")[0];
+    const dateStr = toLocalDateString(prevMonthDate);
     calendarDays.push({
       dayNumber: d,
       isCurrentMonth: false,
@@ -93,7 +93,7 @@ export const CalendarMonthView: React.FC<CalendarMonthViewProps> = ({
   // Current month days
   for (let d = 1; d <= daysInMonth; d++) {
     const thisDate = new Date(year, month, d);
-    const dateStr = thisDate.toISOString().split("T")[0];
+    const dateStr = toLocalDateString(thisDate);
     calendarDays.push({
       dayNumber: d,
       isCurrentMonth: true,
@@ -106,7 +106,7 @@ export const CalendarMonthView: React.FC<CalendarMonthViewProps> = ({
   const remaining = 42 - calendarDays.length;
   for (let d = 1; d <= remaining; d++) {
     const nextMonthDate = new Date(year, month + 1, d);
-    const dateStr = nextMonthDate.toISOString().split("T")[0];
+    const dateStr = toLocalDateString(nextMonthDate);
     calendarDays.push({
       dayNumber: d,
       isCurrentMonth: false,
@@ -118,7 +118,7 @@ export const CalendarMonthView: React.FC<CalendarMonthViewProps> = ({
   // Map events to date strings
   const eventsByDate: Record<string, EventItem[]> = {};
   for (const ev of events) {
-    const dateKey = new Date(ev.date).toISOString().split("T")[0];
+    const dateKey = getEventDateString(ev.date);
     if (!eventsByDate[dateKey]) eventsByDate[dateKey] = [];
     eventsByDate[dateKey].push(ev);
   }

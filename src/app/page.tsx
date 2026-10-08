@@ -19,7 +19,7 @@ import { CalendarMonthView } from "@/components/CalendarMonthView";
 import { AdminPanelModal } from "@/components/AdminPanelModal";
 import { DashboardView } from "@/components/DashboardView";
 import { GroupSelectionModal } from "@/components/GroupSelectionModal";
-import { formatCzechDate } from "@/lib/formatters";
+import { formatCzechDate, getEventDateString, toLocalDateString } from "@/lib/formatters";
 import {
   Search,
   Plus,
@@ -206,19 +206,21 @@ export default function HomePage() {
 
   // Filtered Events
   const filteredEvents = useMemo(() => {
-    const today = clientToday || new Date(0);
+    const todayStr = clientToday ? toLocalDateString(clientToday) : "";
 
     return events.filter((ev) => {
-      const evDate = new Date(ev.date);
-      evDate.setHours(0, 0, 0, 0);
+      const evDateStr = getEventDateString(ev.date);
 
       // Timeframe filter
       if (timeframeFilter === "upcoming") {
-        if (clientToday && evDate < today) return false;
+        if (todayStr && evDateStr < todayStr) return false;
       } else if (timeframeFilter === "this_week") {
-        const nextWeek = new Date(today);
-        nextWeek.setDate(today.getDate() + 7);
-        if (clientToday && (evDate < today || evDate > nextWeek)) return false;
+        if (clientToday) {
+          const nextWeek = new Date(clientToday);
+          nextWeek.setDate(clientToday.getDate() + 7);
+          const nextWeekStr = toLocalDateString(nextWeek);
+          if (evDateStr < todayStr || evDateStr > nextWeekStr) return false;
+        }
       }
 
       // Type filter
@@ -263,7 +265,7 @@ export default function HomePage() {
   const groupedEvents = useMemo(() => {
     const groupsMap: Record<string, EventItem[]> = {};
     for (const ev of filteredEvents) {
-      const dateKey = new Date(ev.date).toISOString().split("T")[0];
+      const dateKey = getEventDateString(ev.date);
       if (!groupsMap[dateKey]) groupsMap[dateKey] = [];
       groupsMap[dateKey].push(ev);
     }
@@ -272,8 +274,10 @@ export default function HomePage() {
 
   // Counts for summary pills
   const stats = useMemo(() => {
-    const now = clientToday || new Date(0);
-    const upcoming = clientToday ? events.filter((e) => new Date(e.date) >= now) : events;
+    const todayStr = clientToday ? toLocalDateString(clientToday) : "";
+    const upcoming = todayStr
+      ? events.filter((e) => getEventDateString(e.date) >= todayStr)
+      : events;
 
     return {
       tests: upcoming.filter((e) => e.type === "TEST").length,

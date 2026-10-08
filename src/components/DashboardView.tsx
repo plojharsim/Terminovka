@@ -18,6 +18,8 @@ import {
   formatHoursCount,
   formatActiveEventsSentence,
   formatUpcomingTermsCount,
+  toLocalDateString,
+  getEventDateString,
 } from "@/lib/formatters";
 import {
   PERIOD_TIMES,
@@ -116,20 +118,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Upcoming events sorted by date
   const upcomingEvents = useMemo(() => {
     if (!mounted) return [];
-    const startOfToday = new Date(todayDate);
-    startOfToday.setHours(0, 0, 0, 0);
+    const todayStr = toLocalDateString(todayDate);
 
     return events
       .filter((ev) => {
-        const evDate = new Date(ev.date);
-        evDate.setHours(0, 0, 0, 0);
-        return evDate >= startOfToday;
+        const evDateStr = getEventDateString(ev.date);
+        return evDateStr >= todayStr;
       })
       .filter((ev) => {
         if (!ev.groupId || ev.group?.isDefaultAll) return true;
         return selectedGroupIds.includes(ev.groupId);
       })
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .sort((a, b) => {
+        const aDate = getEventDateString(a.date);
+        const bDate = getEventDateString(b.date);
+        if (aDate !== bDate) return aDate.localeCompare(bDate);
+        return (a.period || 0) - (b.period || 0);
+      });
   }, [events, todayDate, selectedGroupIds, mounted]);
 
   // Next urgent events (up to 5)
@@ -140,10 +145,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Today's events specifically
   const todayEvents = useMemo(() => {
     if (!mounted) return [];
-    const todayStr = todayDate.toISOString().split("T")[0];
+    const todayStr = toLocalDateString(todayDate);
     return events.filter((ev) => {
-      const evDate = new Date(ev.date).toISOString().split("T")[0];
-      return evDate === todayStr;
+      const evDateStr = getEventDateString(ev.date);
+      return evDateStr === todayStr;
     });
   }, [events, todayDate, mounted]);
 
@@ -156,22 +161,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
     const monday = new Date(curr);
     monday.setDate(curr.getDate() + distanceToMonday);
-    monday.setHours(0, 0, 0, 0);
 
     const daysList = [];
     for (let i = 0; i < 5; i++) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = toLocalDateString(d);
 
       // Find events for this day
       const dayEvs = events.filter((e) => {
-        const eStr = new Date(e.date).toISOString().split("T")[0];
+        const eStr = getEventDateString(e.date);
         return eStr === dateStr;
       });
 
-      // Find timetable slot count
-      const slotCount = slots.filter((s) => s.dayOfWeek === i + 1).length;
+      // Find unique timetable period count (each period counted only once)
+      const daySlots = slots.filter((s) => s.dayOfWeek === i + 1);
+      const slotCount = new Set(daySlots.map((s) => s.period)).size;
 
       const isCurrentDay =
         mounted &&
@@ -208,10 +213,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     if (!mounted) return null;
     const activeDate = isWeekend
       ? weekDays[0]?.dateStr // Monday if weekend
-      : todayDate.toISOString().split("T")[0];
+      : toLocalDateString(todayDate);
 
     const slotEvents = events.filter((e) => {
-      const eDate = new Date(e.date).toISOString().split("T")[0];
+      const eDate = getEventDateString(e.date);
       if (eDate !== activeDate) return false;
       if (e.period === periodNum) return true;
       if (e.subjectId === subjectId) return true;
@@ -264,7 +269,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <>
                   Dnes škola není. V pondělí vás čeká{" "}
                   <strong className="text-[#0D0F26] dark:text-white">
-                    {formatHoursCount(slots.filter((s) => s.dayOfWeek === 1).length)}
+                    {formatHoursCount(new Set(slots.filter((s) => s.dayOfWeek === 1).map((s) => s.period)).size)}
                   </strong>{" "}
                   a celkem{" "}
                   <strong className="text-[#0D0F26] dark:text-white">
@@ -276,7 +281,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <>
                   Dnes máte v rozvrhu{" "}
                   <strong className="text-[#0D0F26] dark:text-white">
-                    {formatHoursCount(todaySlots.length)}
+                    {formatHoursCount(new Set(todaySlots.map((s) => s.period)).size)}
                   </strong>
                   {todayEvents.length > 0 ? (
                     <>
