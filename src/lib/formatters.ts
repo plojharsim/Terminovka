@@ -125,6 +125,33 @@ export function getRelativeTimeCzech(dateInput: string | Date): {
 }
 
 /**
+ * Czech inflection helper for count of lessons (hodina, hodiny, hodin)
+ */
+export function formatHoursCount(count: number): string {
+  if (count === 1) return "1 vyučovací hodina";
+  if (count >= 2 && count <= 4) return `${count} vyučovací hodiny`;
+  return `${count} vyučovacích hodin`;
+}
+
+/**
+ * Czech inflection helper for count of events (probíhá 1 zadaná událost, probíhají 2 zadané události, probíhá 5 zadaných událostí)
+ */
+export function formatActiveEventsSentence(count: number): string {
+  if (count === 1) return "dnes probíhá 1 zadaná událost";
+  if (count >= 2 && count <= 4) return `dnes probíhají ${count} zadané události`;
+  return `dnes probíhá ${count} zadaných událostí`;
+}
+
+/**
+ * Czech inflection helper for count of upcoming events (termín, termíny, termínů)
+ */
+export function formatUpcomingTermsCount(count: number): string {
+  if (count === 1) return "1 nadcházející termín";
+  if (count >= 2 && count <= 4) return `${count} nadcházející termíny`;
+  return `${count} nadcházejících termínů`;
+}
+
+/**
  * Czech vocative (5. pád - oslovení) for common Czech first names.
  */
 const KNOWN_VOCATIVES: Record<string, string> = {

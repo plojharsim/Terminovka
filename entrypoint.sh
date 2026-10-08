@@ -26,9 +26,36 @@ const prisma = new PrismaClient();
         isActive: true
       }
     });
-    console.log("Admin account synced with latest credentials.");
+    // Synchronize official Bakalari subject names and teachers
+    const officialSubjects = [
+      { code: "ANG", name: "Anglický jazyk", teacher: "Mgr. Veronika Černovická" },
+      { code: "BIO", name: "Biologie", teacher: "Mgr. Blanka Čechová" },
+      { code: "CHE", name: "Chemie", teacher: "Vojtěch Hypša" },
+      { code: "DEJ", name: "Dějepis", teacher: "Martin Kučera" },
+      { code: "ELE", name: "Elektrotechnika", teacher: "Ing. Zuzana Cimlerová" },
+      { code: "FYZ", name: "Fyzika", teacher: "Adam Mikoška" },
+      { code: "HAR", name: "Hardware", teacher: "Adrian Simonides" },
+      { code: "M", name: "Matematika", teacher: "Ivana Mašková" },
+      { code: "ONA", name: "Občanská nauka", teacher: "Bc. Joel Karásek" },
+      { code: "PSI", name: "Počítačové sítě", teacher: "Štěpán Koliáš" },
+      { code: "PCV", name: "Praktická cvičení", teacher: "Martin Polťák" },
+      { code: "PDV", name: "Prezentační dovednosti", teacher: "Michal Hejduk" },
+      { code: "PVA", name: "Programování a vývoj aplikací", teacher: "Lukáš Procházka" },
+      { code: "TEK", name: "Technické kreslení", teacher: "David Egyházi" },
+      { code: "TEV", name: "Tělesná výchova", teacher: "Bc. Kristýna Pejšová" },
+      { code: "CJL", name: "Český jazyk a literatura", teacher: "Mgr. Tereza Krausová" }
+    ];
+
+    for (const sub of officialSubjects) {
+      await prisma.subject.updateMany({
+        where: { code: sub.code },
+        data: { name: sub.name, teacher: sub.teacher }
+      });
+    }
+
+    console.log("Admin account & official subjects synced with latest data.");
   } catch (err) {
-    console.error("Error syncing admin account:", err);
+    console.error("Error syncing data:", err);
   } finally {
     await prisma.$disconnect();
   }

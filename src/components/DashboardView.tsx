@@ -15,6 +15,9 @@ import {
   getRelativeTimeCzech,
   EVENT_TYPE_CONFIG,
   getCzechVocative,
+  formatHoursCount,
+  formatActiveEventsSentence,
+  formatUpcomingTermsCount,
 } from "@/lib/formatters";
 import {
   PERIOD_TIMES,
@@ -261,11 +264,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <>
                   Dnes škola není. V pondělí vás čeká{" "}
                   <strong className="text-[#0D0F26] dark:text-white">
-                    {slots.filter((s) => s.dayOfWeek === 1).length} vyučovacích hodin
+                    {formatHoursCount(slots.filter((s) => s.dayOfWeek === 1).length)}
                   </strong>{" "}
                   a celkem{" "}
                   <strong className="text-[#0D0F26] dark:text-white">
-                    {stats.total} nadcházejících termínů
+                    {formatUpcomingTermsCount(stats.total)}
                   </strong>
                   .
                 </>
@@ -273,18 +276,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <>
                   Dnes máte v rozvrhu{" "}
                   <strong className="text-[#0D0F26] dark:text-white">
-                    {todaySlots.length} vyučovacích hodin
+                    {formatHoursCount(todaySlots.length)}
                   </strong>
                   {todayEvents.length > 0 ? (
                     <>
                       {" "}
-                      a dnes probíhá{" "}
+                      a{" "}
                       <strong className="text-rose-600 dark:text-rose-400">
-                        {todayEvents.length} zadaných událostí
+                        {formatActiveEventsSentence(todayEvents.length)}
                       </strong>
                     </>
                   ) : (
-                    <> a na dnešek nejsou nahlášeny žádné písemky ani deadliny</>
+                    <> a na dnešek nejsou nahlášeny žádné písemky ani úkoly</>
                   )}
                   .
                 </>
