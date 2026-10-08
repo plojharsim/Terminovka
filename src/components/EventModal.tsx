@@ -44,7 +44,8 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [description, setDescription] = useState("");
   const [attachmentUrl, setAttachmentUrl] = useState("");
   const [recurrenceType, setRecurrenceType] = useState<"NONE" | "WEEKLY" | "BIWEEKLY" | "MONTHLY">("NONE");
-  const [recurrenceCount, setRecurrenceCount] = useState<number>(2);
+  const [recurrenceCount, setRecurrenceCount] = useState<number>(4);
+  const [untilEndOfSchoolYear, setUntilEndOfSchoolYear] = useState<boolean>(true);
 
   // Validation state
   const [isCheckingTimetable, setIsCheckingTimetable] = useState(false);
@@ -83,7 +84,8 @@ export const EventModal: React.FC<EventModalProps> = ({
       setDescription(editEvent.description || "");
       setAttachmentUrl(editEvent.attachmentUrl || "");
       setRecurrenceType("NONE");
-      setRecurrenceCount(2);
+      setRecurrenceCount(4);
+      setUntilEndOfSchoolYear(true);
     } else {
       setTitle("");
       setType("TEST");
@@ -95,7 +97,8 @@ export const EventModal: React.FC<EventModalProps> = ({
       setDescription("");
       setAttachmentUrl("");
       setRecurrenceType("NONE");
-      setRecurrenceCount(2);
+      setRecurrenceCount(4);
+      setUntilEndOfSchoolYear(true);
     }
     setTimetableError(null);
     setFormError(null);
@@ -198,6 +201,7 @@ export const EventModal: React.FC<EventModalProps> = ({
 
       if (!editEvent && recurrenceType !== "NONE") {
         payload.recurrenceType = recurrenceType;
+        payload.untilEndOfSchoolYear = untilEndOfSchoolYear;
         payload.recurrenceCount = recurrenceCount;
       }
 
@@ -403,25 +407,61 @@ export const EventModal: React.FC<EventModalProps> = ({
 
             {/* Recurrence count options if active */}
             {!editEvent && recurrenceType !== "NONE" && (
-              <div className="mt-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <span className="text-amber-800 dark:text-amber-300 font-medium">
-                  Kolikrát událost zopakovat:
-                </span>
-                <div className="flex items-center space-x-2">
-                  <select
-                    value={recurrenceCount}
-                    onChange={(e) => setRecurrenceCount(Number(e.target.value))}
-                    className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#0D0F26] border border-amber-500/30 text-slate-900 dark:text-white font-bold"
-                  >
-                    <option value={2}>2× (původní + 1 opakování)</option>
-                    <option value={3}>3× (celkem 3 termíny)</option>
-                    <option value={4}>4× (celkem 4 termíny)</option>
-                    <option value={5}>5× (celkem 5 termínů)</option>
-                    <option value={6}>6× (celkem 6 termínů)</option>
-                    <option value={8}>8× (celkem 8 termínů)</option>
-                    <option value={10}>10× (celkem 10 termínů)</option>
-                  </select>
+              <div className="mt-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-amber-800 dark:text-amber-300 font-bold">
+                    Trvání opakování:
+                  </span>
+                  <div className="inline-flex items-center rounded-lg border border-amber-500/30 p-0.5 bg-white dark:bg-[#0D0F26]">
+                    <button
+                      type="button"
+                      onClick={() => setUntilEndOfSchoolYear(true)}
+                      className={`px-2.5 py-1 rounded-md font-bold transition text-xs ${
+                        untilEndOfSchoolYear
+                          ? "bg-[#DDA300] text-[#0D0F26] shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >
+                      ♾️ Nekonečně (do konce šk. roku)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUntilEndOfSchoolYear(false)}
+                      className={`px-2.5 py-1 rounded-md font-bold transition text-xs ${
+                        !untilEndOfSchoolYear
+                          ? "bg-[#DDA300] text-[#0D0F26] shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >
+                      Zvolit počet termínů
+                    </button>
+                  </div>
                 </div>
+
+                {!untilEndOfSchoolYear ? (
+                  <div className="flex items-center justify-between pt-1 border-t border-amber-500/20">
+                    <span className="text-slate-600 dark:text-slate-400">Přesný počet opakování:</span>
+                    <select
+                      value={recurrenceCount}
+                      onChange={(e) => setRecurrenceCount(Number(e.target.value))}
+                      className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#0D0F26] border border-amber-500/30 text-slate-900 dark:text-white font-bold"
+                    >
+                      <option value={2}>2× (původní + 1 opakování)</option>
+                      <option value={3}>3× (celkem 3 termíny)</option>
+                      <option value={4}>4× (celkem 4 termíny)</option>
+                      <option value={5}>5× (celkem 5 termínů)</option>
+                      <option value={6}>6× (celkem 6 termínů)</option>
+                      <option value={8}>8× (celkem 8 termínů)</option>
+                      <option value={10}>10× (celkem 10 termínů)</option>
+                      <option value={15}>15× (celkem 15 termínů)</option>
+                      <option value={20}>20× (celkem 20 termínů)</option>
+                    </select>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300/80">
+                    💡 Událost se automaticky vygeneruje pro každý příslušný týden až do konce školního roku (do 30. června).
+                  </p>
+                )}
               </div>
             )}
           </div>

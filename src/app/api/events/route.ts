@@ -107,25 +107,39 @@ export async function POST(request: NextRequest) {
 
     const requiresTimetableLesson = type === "TEST";
     const recurrenceType = body.recurrenceType || "NONE"; // "NONE" | "WEEKLY" | "BIWEEKLY" | "MONTHLY"
-    const recurrenceCount = Math.min(Math.max(Number(body.recurrenceCount) || 1, 1), 20);
+    const untilEndOfSchoolYear = Boolean(body.untilEndOfSchoolYear);
+    // Max 40 dates for a full school year
+    const maxRecurrence = untilEndOfSchoolYear ? 45 : Math.min(Math.max(Number(body.recurrenceCount) || 1, 1), 40);
 
     // Compute all target dates (YYYY-MM-DD strings)
     const datesToCreate: string[] = [date];
-    if (recurrenceType !== "NONE" && recurrenceCount > 1) {
+    if (recurrenceType !== "NONE") {
       const [startYear, startMonth, startDay] = date.split("-").map(Number);
-      for (let i = 1; i < recurrenceCount; i++) {
+      // School year boundary: June 30th of the current academic year
+      const schoolYearEnd = new Date(startMonth >= 9 ? startYear + 1 : startYear, 5, 30); // 30. června
+
+      let curIndex = 1;
+      while (curIndex < maxRecurrence) {
         const nextDate = new Date(startYear, startMonth - 1, startDay);
         if (recurrenceType === "WEEKLY") {
-          nextDate.setDate(nextDate.getDate() + i * 7);
+          nextDate.setDate(nextDate.getDate() + curIndex * 7);
         } else if (recurrenceType === "BIWEEKLY") {
-          nextDate.setDate(nextDate.getDate() + i * 14);
+          nextDate.setDate(nextDate.getDate() + curIndex * 14);
         } else if (recurrenceType === "MONTHLY") {
-          nextDate.setMonth(nextDate.getMonth() + i);
+          nextDate.setMonth(nextDate.getMonth() + curIndex);
         }
+
+        // If 'until end of school year' is chosen, stop after June 30
+        if (untilEndOfSchoolYear && nextDate > schoolYearEnd) {
+          break;
+        }
+
         const yStr = nextDate.getFullYear();
         const mStr = String(nextDate.getMonth() + 1).padStart(2, "0");
         const dStr = String(nextDate.getDate()).padStart(2, "0");
         datesToCreate.push(`${yStr}-${mStr}-${dStr}`);
+
+        curIndex++;
       }
     }
 
