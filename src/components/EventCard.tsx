@@ -17,6 +17,7 @@ import {
   MapPin,
   Users,
   Repeat,
+  Download,
 } from "lucide-react";
 
 interface EventCardProps {
@@ -180,8 +181,24 @@ export const EventCard: React.FC<EventCardProps> = ({
               rel="noopener noreferrer"
               className="inline-flex items-center space-x-1.5 font-bold text-[#0D0F26] dark:text-[#DDA300] hover:underline group"
             >
-              <span>Zobrazit zadání</span>
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              {event.attachmentName || event.attachmentUrl.startsWith("/api/uploads/") ? (
+                <>
+                  <Download className="w-4 h-4 text-[#DDA300]" />
+                  <span className="truncate max-w-[200px]" title={event.attachmentName || "Příloha"}>
+                    {event.attachmentName || "Stáhnout přílohu"}
+                  </span>
+                </>
+              ) : event.attachmentUrl.includes("teams.microsoft.com") ? (
+                <>
+                  <ExternalLink className="w-4 h-4 text-blue-500" />
+                  <span>Otevřít v Teams</span>
+                </>
+              ) : (
+                <>
+                  <span>Zobrazit zadání</span>
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                </>
+              )}
             </a>
           ) : (
             <span className="text-xs text-slate-500 dark:text-slate-400">

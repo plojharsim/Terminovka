@@ -21,6 +21,7 @@ import {
   toLocalDateString,
   getEventDateString,
   computeEventCounts,
+  formatRecurringEventsCount,
 } from "@/lib/formatters";
 import {
   PERIOD_TIMES,
@@ -46,6 +47,8 @@ import {
   ExternalLink,
   Edit2,
   Trash2,
+  Paperclip,
+  Download,
 } from "lucide-react";
 
 interface DashboardViewProps {
@@ -276,9 +279,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <strong className="text-[#0D0F26] dark:text-white">
                     {formatUpcomingTermsCount(stats.total.primaryCount)}
                   </strong>
-                  {stats.total.recurringExtraCount > 0 && (
+                  {stats.total.recurringCount > 0 && (
                     <span className="text-slate-500 dark:text-slate-400 text-xs ml-1 font-semibold">
-                      (+ {stats.total.recurringExtraCount} opakovaných)
+                      ({formatRecurringEventsCount(stats.total.recurringCount)})
                     </span>
                   )}
                   .
@@ -367,9 +370,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="text-2xl sm:text-3xl font-black text-rose-600 dark:text-rose-400">
                 {stats.tests.primaryCount}
               </span>
-              {stats.tests.recurringExtraCount > 0 && (
+              {stats.tests.recurringCount > 0 && (
                 <span className="text-[11px] font-bold text-rose-600 dark:text-rose-300 bg-rose-500/15 px-1.5 py-0.5 rounded-md">
-                  +{stats.tests.recurringExtraCount} opak.
+                  {formatRecurringEventsCount(stats.tests.recurringCount, "TEST")}
                 </span>
               )}
             </div>
@@ -395,9 +398,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="text-2xl sm:text-3xl font-black text-blue-600 dark:text-blue-400">
                 {stats.homeworks.primaryCount}
               </span>
-              {stats.homeworks.recurringExtraCount > 0 && (
+              {stats.homeworks.recurringCount > 0 && (
                 <span className="text-[11px] font-bold text-blue-600 dark:text-blue-300 bg-blue-500/15 px-1.5 py-0.5 rounded-md">
-                  +{stats.homeworks.recurringExtraCount} opak.
+                  {formatRecurringEventsCount(stats.homeworks.recurringCount, "HOMEWORK")}
                 </span>
               )}
             </div>
@@ -423,9 +426,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="text-2xl sm:text-3xl font-black text-[#0D0F26] dark:text-white">
                 {stats.total.primaryCount}
               </span>
-              {stats.total.recurringExtraCount > 0 && (
+              {stats.total.recurringCount > 0 && (
                 <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/10 px-1.5 py-0.5 rounded-md">
-                  +{stats.total.recurringExtraCount} opak.
+                  {formatRecurringEventsCount(stats.total.recurringCount)}
                 </span>
               )}
             </div>
@@ -699,6 +702,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-1">
                           {ev.description}
                         </p>
+                      )}
+
+                      {/* Attachment / Teams Link */}
+                      {ev.attachmentUrl && (
+                        <div className="pt-0.5">
+                          <a
+                            href={ev.attachmentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center space-x-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            {ev.attachmentName || ev.attachmentUrl.startsWith("/api/uploads/") ? (
+                              <>
+                                <Download className="w-3 h-3 text-[#DDA300]" />
+                                <span className="truncate max-w-[200px]">{ev.attachmentName || "Příloha"}</span>
+                              </>
+                            ) : ev.attachmentUrl.includes("teams.microsoft.com") ? (
+                              <>
+                                <ExternalLink className="w-3 h-3 text-blue-500" />
+                                <span>Microsoft Teams</span>
+                              </>
+                            ) : (
+                              <>
+                                <Paperclip className="w-3 h-3 text-slate-400" />
+                                <span>Zadání / odkaz</span>
+                              </>
+                            )}
+                          </a>
+                        </div>
                       )}
                     </div>
 

@@ -40,6 +40,7 @@ export async function PUT(
       period,
       description,
       attachmentUrl,
+      attachmentName,
       weight,
     } = body;
 
@@ -90,6 +91,7 @@ export async function PUT(
         period: finalPeriod,
         description: description ? description.trim() : null,
         attachmentUrl: attachmentUrl ? attachmentUrl.trim() : null,
+        attachmentName: attachmentName ? attachmentName.trim() : null,
         weight: weight != null && weight !== "" ? Number(weight) : null,
         subjectId: cleanSubjectId,
         groupId: cleanGroupId,

@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
       period,
       description,
       attachmentUrl,
+      attachmentName,
       weight,
     } = body;
 
@@ -194,6 +195,7 @@ export async function POST(request: NextRequest) {
           period: finalPeriod,
           description: description ? description.trim() : null,
           attachmentUrl: attachmentUrl ? attachmentUrl.trim() : null,
+          attachmentName: attachmentName ? attachmentName.trim() : null,
           weight: weight != null && weight !== "" ? Number(weight) : null,
           recurringId: seriesRecurringId,
           subjectId: cleanSubjectId,

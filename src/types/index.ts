@@ -43,6 +43,7 @@ export interface EventItem {
   recurringId?: string | null;
   description?: string | null;
   attachmentUrl?: string | null;
+  attachmentName?: string | null;
   subjectId?: string | null;
   subject?: Subject | null;
   groupId?: string | null;

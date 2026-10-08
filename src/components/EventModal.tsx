@@ -14,6 +14,9 @@ import {
   Users,
   Loader2,
   Repeat,
+  Paperclip,
+  UploadCloud,
+  FileCheck,
 } from "lucide-react";
 
 interface EventModalProps {
@@ -48,6 +51,10 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [period, setPeriod] = useState<number | null>(null);
   const [description, setDescription] = useState("");
   const [attachmentUrl, setAttachmentUrl] = useState("");
+  const [attachmentName, setAttachmentName] = useState("");
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [recurrenceType, setRecurrenceType] = useState<"NONE" | "WEEKLY" | "BIWEEKLY" | "MONTHLY">("NONE");
   const [recurrenceCount, setRecurrenceCount] = useState<number>(4);
   const [untilEndOfSchoolYear, setUntilEndOfSchoolYear] = useState<boolean>(true);
@@ -121,6 +128,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setPeriod(editEvent.period || null);
       setDescription(editEvent.description || "");
       setAttachmentUrl(editEvent.attachmentUrl || "");
+      setAttachmentName(editEvent.attachmentName || "");
       setRecurrenceType("NONE");
       setRecurrenceCount(4);
       setUntilEndOfSchoolYear(true);
@@ -136,11 +144,13 @@ export const EventModal: React.FC<EventModalProps> = ({
       setPeriod(null);
       setDescription("");
       setAttachmentUrl("");
+      setAttachmentName("");
       setRecurrenceType("NONE");
       setRecurrenceCount(4);
       setUntilEndOfSchoolYear(true);
       setWeight("");
     }
+    setUploadError(null);
     setTimetableError(null);
     setFormError(null);
   }, [editEvent, isOpen, subjects, slots, selectedGroupIds]);
@@ -207,6 +217,53 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 50 * 1024 * 1024) {
+      setUploadError("Soubor je příliš velký (maximum je 50 MB).");
+      return;
+    }
+
+    setIsUploadingFile(true);
+    setUploadError(null);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setUploadError(data.error || "Nahrávání souboru selhalo.");
+      } else {
+        setAttachmentUrl(data.url);
+        setAttachmentName(data.name || file.name);
+      }
+    } catch (err: any) {
+      setUploadError(err?.message || "Chyba při komunikaci se serverem.");
+    } finally {
+      setIsUploadingFile(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const removeAttachment = () => {
+    setAttachmentUrl("");
+    setAttachmentName("");
+    setUploadError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -238,6 +295,7 @@ export const EventModal: React.FC<EventModalProps> = ({
         period: subjectId !== "none" && period ? period : null,
         description: description.trim() || null,
         attachmentUrl: attachmentUrl.trim() || null,
+        attachmentName: attachmentName.trim() || null,
         weight: weight !== "" && !isNaN(Number(weight)) ? Number(weight) : null,
       };
 
@@ -700,18 +758,110 @@ export const EventModal: React.FC<EventModalProps> = ({
             />
           </div>
 
-          {/* Attachment Link */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-              Odkaz na materiály / Google Classroom
-            </label>
-            <input
-              type="url"
-              value={attachmentUrl}
-              onChange={(e) => setAttachmentUrl(e.target.value)}
-              placeholder="https://classroom.google.com/c/..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#2A316E] bg-white dark:bg-[#0D0F26] text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#DDA300]"
-            />
+          {/* Attachments & Links (File upload or Teams / Web link) */}
+          <div className="space-y-3 pt-1 border-t border-slate-200 dark:border-[#23295C]">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <span className="flex items-center space-x-1.5">
+                  <Paperclip className="w-3.5 h-3.5 text-[#DDA300]" />
+                  <span>Příloha souboru</span>
+                </span>
+                <span className="text-[11px] lowercase font-normal text-slate-400">
+                  (PDF, Word, obrázky do 50 MB)
+                </span>
+              </label>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+
+              {attachmentUrl && (attachmentName || attachmentUrl.startsWith("/api/uploads/")) ? (
+                <div className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs">
+                  <div className="flex items-center space-x-2.5 truncate mr-2">
+                    <FileCheck className="w-5 h-5 text-[#DDA300] shrink-0" />
+                    <div className="truncate">
+                      <span className="font-bold text-slate-900 dark:text-white truncate block">
+                        {attachmentName || "Nahraný soubor"}
+                      </span>
+                      <a
+                        href={attachmentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] text-[#DDA300] hover:underline"
+                      >
+                        Zkontrolovat / otevřít soubor
+                      </a>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removeAttachment}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition shrink-0 cursor-pointer"
+                    title="Odebrat přílohu"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={isUploadingFile}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full py-3 px-4 border border-dashed border-slate-300 dark:border-[#2A316E] hover:border-[#DDA300] dark:hover:border-[#DDA300] rounded-xl flex items-center justify-center space-x-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1C2152]/50 transition group cursor-pointer"
+                >
+                  {isUploadingFile ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-[#DDA300]" />
+                      <span>Nahrávám soubor na server...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UploadCloud className="w-4 h-4 text-slate-400 group-hover:text-[#DDA300] transition" />
+                      <span>Klikněte pro nahrání souboru ze zařízení</span>
+                    </>
+                  )}
+                </button>
+              )}
+
+              {uploadError && (
+                <p className="mt-1.5 text-xs text-rose-500 flex items-center space-x-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{uploadError}</span>
+                </p>
+              )}
+            </div>
+
+            {/* Microsoft Teams or Web link */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center space-x-1.5">
+                <LinkIcon className="w-3.5 h-3.5 text-blue-500" />
+                <span>Odkaz na materiály / Microsoft Teams</span>
+              </label>
+              <input
+                type="url"
+                value={attachmentName ? "" : attachmentUrl}
+                disabled={!!attachmentName && attachmentUrl.startsWith("/api/uploads/")}
+                onChange={(e) => {
+                  setAttachmentUrl(e.target.value);
+                  setAttachmentName("");
+                }}
+                placeholder="https://teams.microsoft.com/l/... nebo webový odkaz"
+                className={`w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#2A316E] bg-white dark:bg-[#0D0F26] text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#DDA300] ${
+                  attachmentName && attachmentUrl.startsWith("/api/uploads/")
+                    ? "opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-900"
+                    : ""
+                }`}
+              />
+              {attachmentName && attachmentUrl.startsWith("/api/uploads/") && (
+                <p className="text-[11px] text-slate-400 mt-1">
+                  (Aktuálně je přiložen nahraný soubor výše. Pro zadání odkazu na Teams nejdříve odeberte nahraný soubor.)
+                </p>
+              )}
+            </div>
           </div>
 
           </div>

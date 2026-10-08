@@ -166,21 +166,42 @@ export function getRelativeTimeCzech(dateInput: string | Date): {
 }
 
 /**
- * Calculates primary count and extra recurring count.
- * Unique non-recurring events count as 1.
- * Multiple events sharing a recurringId count as 1 primary, and the rest as recurring extra.
+ * Calculates primary count (one-off events) and recurring count (distinct recurring series).
+ * Each recurring event series is counted exactly once.
  */
 export function computeEventCounts(evList: any[]): {
   primaryCount: number;
-  recurringExtraCount: number;
+  recurringCount: number;
 } {
   const nonRecurring = evList.filter((e) => !e.recurringId);
   const recurringGroups = new Set(
     evList.filter((e) => e.recurringId).map((e) => e.recurringId)
   );
-  const primaryCount = nonRecurring.length + recurringGroups.size;
-  const recurringExtraCount = evList.length - primaryCount;
-  return { primaryCount, recurringExtraCount };
+  const primaryCount = nonRecurring.length;
+  const recurringCount = recurringGroups.size;
+  return { primaryCount, recurringCount };
+}
+
+/**
+ * Czech inflection for recurring events count:
+ * 1 -> "+ 1 opakovaná" (písemka) / "+ 1 opakovaný" (úkol)
+ * 2-4 -> "+ X opakované"
+ * 5+ -> "+ X opakovaných"
+ */
+export function formatRecurringEventsCount(count: number, type?: string): string {
+  if (type === "TEST") {
+    if (count === 1) return "+ 1 opakovaná";
+    if (count >= 2 && count <= 4) return `+ ${count} opakované`;
+    return `+ ${count} opakovaných`;
+  }
+  if (type === "HOMEWORK") {
+    if (count === 1) return "+ 1 opakovaný";
+    if (count >= 2 && count <= 4) return `+ ${count} opakované`;
+    return `+ ${count} opakovaných`;
+  }
+  if (count === 1) return "+ 1 opakovaná";
+  if (count >= 2 && count <= 4) return `+ ${count} opakované`;
+  return `+ ${count} opakovaných`;
 }
 
 /**

@@ -411,9 +411,9 @@ export default function HomePage() {
                   }`}
                 >
                   <span>Vše ({stats.total.primaryCount}</span>
-                  {stats.total.recurringExtraCount > 0 && (
+                  {stats.total.recurringCount > 0 && (
                     <span className="opacity-80 text-[11px] font-semibold">
-                      +{stats.total.recurringExtraCount}
+                      +{stats.total.recurringCount}
                     </span>
                   )}
                   <span>)</span>
@@ -427,9 +427,9 @@ export default function HomePage() {
                   }`}
                 >
                   <span>Písemky ({stats.tests.primaryCount}</span>
-                  {stats.tests.recurringExtraCount > 0 && (
+                  {stats.tests.recurringCount > 0 && (
                     <span className="opacity-80 text-[11px] font-semibold">
-                      +{stats.tests.recurringExtraCount}
+                      +{stats.tests.recurringCount}
                     </span>
                   )}
                   <span>)</span>
@@ -443,9 +443,9 @@ export default function HomePage() {
                   }`}
                 >
                   <span>Úkoly ({stats.homeworks.primaryCount}</span>
-                  {stats.homeworks.recurringExtraCount > 0 && (
+                  {stats.homeworks.recurringCount > 0 && (
                     <span className="opacity-80 text-[11px] font-semibold">
-                      +{stats.homeworks.recurringExtraCount}
+                      +{stats.homeworks.recurringCount}
                     </span>
                   )}
                   <span>)</span>
@@ -459,9 +459,9 @@ export default function HomePage() {
                   }`}
                 >
                   <span>Ostatní ({stats.other.primaryCount}</span>
-                  {stats.other.recurringExtraCount > 0 && (
+                  {stats.other.recurringCount > 0 && (
                     <span className="opacity-80 text-[11px] font-semibold">
-                      +{stats.other.recurringExtraCount}
+                      +{stats.other.recurringCount}
                     </span>
                   )}
                   <span>)</span>
