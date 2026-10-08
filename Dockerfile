@@ -45,7 +45,6 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/prisma/dev.db /app/data/prod.db
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 
 # Ensure permissions
