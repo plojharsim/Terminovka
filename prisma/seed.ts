@@ -7,7 +7,7 @@ async function main() {
   console.log("Seeding production database...");
 
   // 1. Administrator Account
-  const adminPasswordHash = await bcrypt.hash("heslo", 10);
+  const adminPasswordHash = "$2b$10$aCl0FAKCgBF.6Sj07l1WEeLVKUVo5LWeaLriyQf9whCNbQr5E0V32";
 
   const admin = await prisma.user.upsert({
     where: { email: "plojharsim@gmail.com" },

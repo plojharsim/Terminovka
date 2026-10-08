@@ -46,12 +46,13 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma/dev.db /app/data/prod.db
+COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 
 # Ensure permissions
-RUN chown -R nextjs:nodejs /app
+RUN chmod +x ./entrypoint.sh && chown -R nextjs:nodejs /app
 
 USER nextjs
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+ENTRYPOINT ["./entrypoint.sh"]
