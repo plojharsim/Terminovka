@@ -183,6 +183,7 @@ export async function validateEventAgainstTimetable(
       endTime: s.endTime,
       room: s.room,
       weekType: s.weekType,
+      groupId: s.groupId || null,
       groupName: s.group?.name,
     })),
   };

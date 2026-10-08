@@ -85,6 +85,13 @@ export const EventCard: React.FC<EventCardProps> = ({
                 <span>{event.group.name}</span>
               </span>
             )}
+
+            {/* Weight badge */}
+            {event.weight != null && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300">
+                Váha {event.weight}
+              </span>
+            )}
           </div>
 
           {/* Urgency indicator */}

@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
       period,
       description,
       attachmentUrl,
+      weight,
     } = body;
 
     if (!title || !title.trim()) {
@@ -188,6 +189,7 @@ export async function POST(request: NextRequest) {
           period: finalPeriod,
           description: description ? description.trim() : null,
           attachmentUrl: attachmentUrl ? attachmentUrl.trim() : null,
+          weight: weight != null && weight !== "" ? Number(weight) : null,
           subjectId: cleanSubjectId,
           groupId: cleanGroupId,
           createdById: user.userId,

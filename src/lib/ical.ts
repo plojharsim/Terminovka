@@ -85,12 +85,16 @@ export async function generateICalFeed(options: ICalOptions = {}): Promise<strin
     const typeName = typePrefixes[ev.type] || "📌 UDÁLOST";
     const subjectPrefix = ev.subject ? `[${ev.subject.name}] ` : "";
     const groupNotice = ev.group && !ev.group.isDefaultAll ? ` (${ev.group.name})` : "";
-    const summary = `${typeName}: ${subjectPrefix}${ev.title}${groupNotice}`;
+    const weightNotice = ev.weight != null ? ` [Váha ${ev.weight}]` : "";
+    const summary = `${typeName}: ${subjectPrefix}${ev.title}${weightNotice}${groupNotice}`;
 
     let descriptionLines = [];
     if (ev.description) {
       descriptionLines.push(ev.description);
       descriptionLines.push("");
+    }
+    if (ev.weight != null) {
+      descriptionLines.push(`Předpokládaná váha známky: ${ev.weight}`);
     }
     if (ev.subject) {
       descriptionLines.push(`Předmět: ${ev.subject.name} (${ev.subject.code})`);

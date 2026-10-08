@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { EventItem, Subject, StudentGroup, EventType } from "@/types";
+import { EventItem, Subject, StudentGroup, EventType, ScheduleSlot } from "@/types";
 import {
   X,
   Calendar,
@@ -21,6 +21,8 @@ interface EventModalProps {
   onSaved: () => void;
   subjects: Subject[];
   groups: StudentGroup[];
+  slots?: ScheduleSlot[];
+  selectedGroupIds?: string[];
   editEvent?: EventItem | null;
 }
 
@@ -30,6 +32,8 @@ export const EventModal: React.FC<EventModalProps> = ({
   onSaved,
   subjects,
   groups,
+  slots = [],
+  selectedGroupIds = [],
   editEvent,
 }) => {
   const [title, setTitle] = useState("");
@@ -46,6 +50,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [recurrenceType, setRecurrenceType] = useState<"NONE" | "WEEKLY" | "BIWEEKLY" | "MONTHLY">("NONE");
   const [recurrenceCount, setRecurrenceCount] = useState<number>(4);
   const [untilEndOfSchoolYear, setUntilEndOfSchoolYear] = useState<boolean>(true);
+  const [weight, setWeight] = useState<number | string>("");
 
   // Validation state
   const [isCheckingTimetable, setIsCheckingTimetable] = useState(false);
@@ -70,6 +75,38 @@ export const EventModal: React.FC<EventModalProps> = ({
     return d.toISOString().split("T")[0];
   };
 
+  // Helper to intelligently resolve default group for a chosen subject:
+  // - If user has a matching group for this subject in the timetable, choose it.
+  // - If user has none or multiple groups in that hour, default to "ALL" (Celá třída).
+  const resolveDefaultGroupForSubject = (subjId: string): string => {
+    if (!subjId || subjId === "none") return "ALL";
+
+    // Find slots where this subject is taught and which belong to a divided group
+    const subjectSlots = slots.filter((s) => s.subjectId === subjId && s.groupId);
+    const subjectDividedGroupIds = Array.from(new Set(subjectSlots.map((s) => s.groupId as string)));
+
+    // Intersect with user's configured groups
+    const matchingUserGroupIds = subjectDividedGroupIds.filter((gid) =>
+      selectedGroupIds.includes(gid)
+    );
+
+    // If exactly 1 matching group, select it!
+    if (matchingUserGroupIds.length === 1) {
+      return matchingUserGroupIds[0];
+    }
+
+    // Otherwise (0 or multiple groups), default to "ALL" (Celá třída)
+    return "ALL";
+  };
+
+  const handleSubjectChange = (newSubjId: string) => {
+    setSubjectId(newSubjId);
+    if (!editEvent) {
+      const autoGrp = resolveDefaultGroupForSubject(newSubjId);
+      setGroupId(autoGrp);
+    }
+  };
+
   useEffect(() => {
     if (editEvent) {
       setTitle(editEvent.title);
@@ -86,12 +123,14 @@ export const EventModal: React.FC<EventModalProps> = ({
       setRecurrenceType("NONE");
       setRecurrenceCount(4);
       setUntilEndOfSchoolYear(true);
+      setWeight(editEvent.weight != null ? editEvent.weight : "");
     } else {
+      const initialSubj = subjects.length > 0 ? subjects[0].id : "none";
       setTitle("");
       setType("TEST");
       setDate(getInitialDate());
-      setSubjectId(subjects.length > 0 ? subjects[0].id : "none");
-      setGroupId("ALL");
+      setSubjectId(initialSubj);
+      setGroupId(resolveDefaultGroupForSubject(initialSubj));
       setHasSpecificTime(true);
       setPeriod(null);
       setDescription("");
@@ -99,10 +138,11 @@ export const EventModal: React.FC<EventModalProps> = ({
       setRecurrenceType("NONE");
       setRecurrenceCount(4);
       setUntilEndOfSchoolYear(true);
+      setWeight("");
     }
     setTimetableError(null);
     setFormError(null);
-  }, [editEvent, isOpen, subjects]);
+  }, [editEvent, isOpen, subjects, slots, selectedGroupIds]);
 
   // Timetable check effect
   useEffect(() => {
@@ -197,6 +237,7 @@ export const EventModal: React.FC<EventModalProps> = ({
         period: subjectId !== "none" && period ? period : null,
         description: description.trim() || null,
         attachmentUrl: attachmentUrl.trim() || null,
+        weight: weight !== "" && !isNaN(Number(weight)) ? Number(weight) : null,
       };
 
       if (!editEvent && recurrenceType !== "NONE") {
@@ -325,6 +366,51 @@ export const EventModal: React.FC<EventModalProps> = ({
             />
           </div>
 
+          {/* Grade Weight (Optional) */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                Předpokládaná váha známky <span className="font-normal lowercase text-slate-400 dark:text-slate-500">(volitelné)</span>
+              </label>
+              {weight !== "" && (
+                <button
+                  type="button"
+                  onClick={() => setWeight("")}
+                  className="text-[11px] text-slate-400 hover:text-rose-500 transition"
+                >
+                  Zrušit váhu
+                </button>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+                placeholder="např. 5 nebo 10"
+                className="w-32 px-3 py-2 rounded-xl border border-slate-300 dark:border-[#2A316E] bg-white dark:bg-[#0D0F26] text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#DDA300]"
+              />
+              <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                {[1, 2, 3, 5, 8, 10].map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    onClick={() => setWeight(w)}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition ${
+                      Number(weight) === w
+                        ? "bg-[#DDA300] border-[#DDA300] text-[#0D0F26] font-bold"
+                        : "bg-slate-100 dark:bg-[#0D0F26] border-slate-200 dark:border-[#2A316E] text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-[#1C2152]"
+                    }`}
+                  >
+                    {w}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* Subject & Group Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -333,7 +419,7 @@ export const EventModal: React.FC<EventModalProps> = ({
               </label>
               <select
                 value={subjectId}
-                onChange={(e) => setSubjectId(e.target.value)}
+                onChange={(e) => handleSubjectChange(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#2A316E] bg-white dark:bg-[#0D0F26] text-slate-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-[#DDA300]"
               >
                 <option value="none">Bez předmětu (např. exkurze, volno)</option>

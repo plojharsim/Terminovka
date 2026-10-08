@@ -613,6 +613,8 @@ export default function HomePage() {
         onSaved={loadAllData}
         subjects={subjects}
         groups={groups}
+        slots={slots}
+        selectedGroupIds={selectedGroupIds}
         editEvent={editingEvent}
       />
 

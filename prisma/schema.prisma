@@ -68,6 +68,7 @@ model Event {
   startTime       String?       // "08:00"
   endTime         String?       // "08:45"
   period          Int?          // Period number if linked to a lesson
+  weight          Int?          // Anticipated grade weight (e.g. 1 to 10)
   description     String?
   attachmentUrl   String?
   subjectId       String?

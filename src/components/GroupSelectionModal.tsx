@@ -32,8 +32,8 @@ export const GroupSelectionModal: React.FC<GroupSelectionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-      <div className="relative w-full max-w-md bg-white dark:bg-[#131738] rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-[#23295C] overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
-        {/* Header */}
+      <div className="relative w-full max-w-md max-h-[90vh] bg-white dark:bg-[#131738] rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-[#23295C] overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+        {/* Header (Sticky) */}
         <div className="px-5 py-4 border-b border-slate-200 dark:border-[#1F2554] flex items-center justify-between bg-slate-50 dark:bg-[#0D0F26] shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#DDA300]/15 flex items-center justify-center text-[#DDA300]">
@@ -56,8 +56,8 @@ export const GroupSelectionModal: React.FC<GroupSelectionModalProps> = ({
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-5 space-y-4">
+        {/* Modal Body (Scrollable) */}
+        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
           <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
             Zaškrtněte všechny skupiny, do kterých chodíte (např. své jazykové nebo tělocvičné skupiny).
             Společné hodiny celé třídy uvidíte vždy.
