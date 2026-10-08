@@ -106,64 +106,93 @@ export async function POST(request: NextRequest) {
     const cleanGroupId = groupId && groupId !== "ALL" ? groupId : null;
 
     const requiresTimetableLesson = type === "TEST";
-    let isTimetableMatch = true;
+    const recurrenceType = body.recurrenceType || "NONE"; // "NONE" | "WEEKLY" | "BIWEEKLY" | "MONTHLY"
+    const recurrenceCount = Math.min(Math.max(Number(body.recurrenceCount) || 1, 1), 20);
 
-    if (cleanSubjectId) {
-      const timetableCheck = await validateEventAgainstTimetable(
-        date,
-        cleanSubjectId,
-        cleanGroupId
-      );
-
-      if (!timetableCheck.valid) {
-        if (requiresTimetableLesson) {
-          return NextResponse.json(
-            {
-              error:
-                timetableCheck.message ||
-                "V tento den se daný předmět v rozvrhu nevyučuje! Pro test zvolte den, kdy máte hodinu.",
-            },
-            { status: 400 }
-          );
+    // Compute all target dates (YYYY-MM-DD strings)
+    const datesToCreate: string[] = [date];
+    if (recurrenceType !== "NONE" && recurrenceCount > 1) {
+      const [startYear, startMonth, startDay] = date.split("-").map(Number);
+      for (let i = 1; i < recurrenceCount; i++) {
+        const nextDate = new Date(startYear, startMonth - 1, startDay);
+        if (recurrenceType === "WEEKLY") {
+          nextDate.setDate(nextDate.getDate() + i * 7);
+        } else if (recurrenceType === "BIWEEKLY") {
+          nextDate.setDate(nextDate.getDate() + i * 14);
+        } else if (recurrenceType === "MONTHLY") {
+          nextDate.setMonth(nextDate.getMonth() + i);
         }
-        isTimetableMatch = false;
+        const yStr = nextDate.getFullYear();
+        const mStr = String(nextDate.getMonth() + 1).padStart(2, "0");
+        const dStr = String(nextDate.getDate()).padStart(2, "0");
+        datesToCreate.push(`${yStr}-${mStr}-${dStr}`);
       }
     }
 
-    const eventDate = new Date(`${date}T00:00:00.000Z`);
+    const createdEvents = [];
 
-    // If it's a task on a day where the subject isn't taught in the timetable,
-    // don't assign a timetable lesson period
-    const finalPeriod = isTimetableMatch && period ? Number(period) : null;
-    const finalHasSpecificTime = isTimetableMatch ? Boolean(hasSpecificTime) : false;
-    const finalStartTime = isTimetableMatch && hasSpecificTime ? startTime || null : null;
-    const finalEndTime = isTimetableMatch && hasSpecificTime ? endTime || null : null;
+    for (const curDateStr of datesToCreate) {
+      let isCurTimetableMatch = true;
 
-    const newEvent = await prisma.event.create({
-      data: {
-        title: title.trim(),
-        type,
-        date: eventDate,
-        hasSpecificTime: finalHasSpecificTime,
-        startTime: finalStartTime,
-        endTime: finalEndTime,
-        period: finalPeriod,
-        description: description ? description.trim() : null,
-        attachmentUrl: attachmentUrl ? attachmentUrl.trim() : null,
-        subjectId: cleanSubjectId,
-        groupId: cleanGroupId,
-        createdById: user.userId,
-      },
-      include: {
-        subject: true,
-        group: true,
-        createdBy: {
-          select: { id: true, name: true, email: true },
+      if (cleanSubjectId) {
+        const timetableCheck = await validateEventAgainstTimetable(
+          curDateStr,
+          cleanSubjectId,
+          cleanGroupId
+        );
+
+        if (!timetableCheck.valid) {
+          if (requiresTimetableLesson) {
+            // For TEST, if any recurring date fails (e.g. alternating week), reject with helpful message
+            return NextResponse.json(
+              {
+                error:
+                  timetableCheck.message ||
+                  `Předmět se v den ${curDateStr} podle rozvrhu nevyučuje.`,
+              },
+              { status: 400 }
+            );
+          }
+          isCurTimetableMatch = false;
+        }
+      }
+
+      const eventDate = new Date(`${curDateStr}T00:00:00.000Z`);
+      const finalPeriod = isCurTimetableMatch && period ? Number(period) : null;
+      const finalHasSpecificTime = isCurTimetableMatch ? Boolean(hasSpecificTime) : false;
+      const finalStartTime = isCurTimetableMatch && hasSpecificTime ? startTime || null : null;
+      const finalEndTime = isCurTimetableMatch && hasSpecificTime ? endTime || null : null;
+
+      const ev = await prisma.event.create({
+        data: {
+          title: title.trim(),
+          type,
+          date: eventDate,
+          hasSpecificTime: finalHasSpecificTime,
+          startTime: finalStartTime,
+          endTime: finalEndTime,
+          period: finalPeriod,
+          description: description ? description.trim() : null,
+          attachmentUrl: attachmentUrl ? attachmentUrl.trim() : null,
+          subjectId: cleanSubjectId,
+          groupId: cleanGroupId,
+          createdById: user.userId,
         },
-      },
-    });
+        include: {
+          subject: true,
+          group: true,
+          createdBy: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      });
+      createdEvents.push(ev);
+    }
 
-    return NextResponse.json({ success: true, event: newEvent }, { status: 201 });
+    return NextResponse.json(
+      { success: true, event: createdEvents[0], count: createdEvents.length },
+      { status: 201 }
+    );
   } catch (error: any) {
     console.error("Error creating event:", error);
     return NextResponse.json(

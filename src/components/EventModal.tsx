@@ -12,6 +12,7 @@ import {
   Link as LinkIcon,
   Users,
   Loader2,
+  Repeat,
 } from "lucide-react";
 
 interface EventModalProps {
@@ -42,6 +43,8 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [period, setPeriod] = useState<number | null>(null);
   const [description, setDescription] = useState("");
   const [attachmentUrl, setAttachmentUrl] = useState("");
+  const [recurrenceType, setRecurrenceType] = useState<"NONE" | "WEEKLY" | "BIWEEKLY" | "MONTHLY">("NONE");
+  const [recurrenceCount, setRecurrenceCount] = useState<number>(2);
 
   // Validation state
   const [isCheckingTimetable, setIsCheckingTimetable] = useState(false);
@@ -79,6 +82,8 @@ export const EventModal: React.FC<EventModalProps> = ({
       setPeriod(editEvent.period || null);
       setDescription(editEvent.description || "");
       setAttachmentUrl(editEvent.attachmentUrl || "");
+      setRecurrenceType("NONE");
+      setRecurrenceCount(2);
     } else {
       setTitle("");
       setType("TEST");
@@ -89,6 +94,8 @@ export const EventModal: React.FC<EventModalProps> = ({
       setPeriod(null);
       setDescription("");
       setAttachmentUrl("");
+      setRecurrenceType("NONE");
+      setRecurrenceCount(2);
     }
     setTimetableError(null);
     setFormError(null);
@@ -175,7 +182,7 @@ export const EventModal: React.FC<EventModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      const payload = {
+      const payload: any = {
         title: title.trim(),
         type,
         date,
@@ -188,6 +195,11 @@ export const EventModal: React.FC<EventModalProps> = ({
         description: description.trim() || null,
         attachmentUrl: attachmentUrl.trim() || null,
       };
+
+      if (!editEvent && recurrenceType !== "NONE") {
+        payload.recurrenceType = recurrenceType;
+        payload.recurrenceCount = recurrenceCount;
+      }
 
       const url = editEvent ? `/api/events/${editEvent.id}` : "/api/events";
       const method = editEvent ? "PUT" : "POST";
@@ -350,18 +362,68 @@ export const EventModal: React.FC<EventModalProps> = ({
             </div>
           </div>
 
-          {/* Date Picker */}
+          {/* Date Picker & Recurrence Row */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-              Datum události *
-            </label>
-            <input
-              type="date"
-              required
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#2A316E] bg-white dark:bg-[#0D0F26] text-slate-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-[#DDA300]"
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                  Datum události *
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#2A316E] bg-white dark:bg-[#0D0F26] text-slate-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-[#DDA300]"
+                />
+              </div>
+
+              {/* Recurrence Option (Only for new events) */}
+              {!editEvent ? (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center space-x-1.5">
+                    <Repeat className="w-3.5 h-3.5 text-[#DDA300]" />
+                    <span>Opakování události</span>
+                  </label>
+                  <select
+                    value={recurrenceType}
+                    onChange={(e) => setRecurrenceType(e.target.value as any)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#2A316E] bg-white dark:bg-[#0D0F26] text-slate-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-[#DDA300]"
+                  >
+                    <option value="NONE">Neopakovat (jednorázově)</option>
+                    <option value="WEEKLY">Každý týden</option>
+                    <option value="BIWEEKLY">Každé 2 týdny (ob týden)</option>
+                    <option value="MONTHLY">Každý měsíc</option>
+                  </select>
+                </div>
+              ) : (
+                <div />
+              )}
+            </div>
+
+            {/* Recurrence count options if active */}
+            {!editEvent && recurrenceType !== "NONE" && (
+              <div className="mt-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="text-amber-800 dark:text-amber-300 font-medium">
+                  Kolikrát událost zopakovat:
+                </span>
+                <div className="flex items-center space-x-2">
+                  <select
+                    value={recurrenceCount}
+                    onChange={(e) => setRecurrenceCount(Number(e.target.value))}
+                    className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#0D0F26] border border-amber-500/30 text-slate-900 dark:text-white font-bold"
+                  >
+                    <option value={2}>2× (původní + 1 opakování)</option>
+                    <option value={3}>3× (celkem 3 termíny)</option>
+                    <option value={4}>4× (celkem 4 termíny)</option>
+                    <option value={5}>5× (celkem 5 termínů)</option>
+                    <option value={6}>6× (celkem 6 termínů)</option>
+                    <option value={8}>8× (celkem 8 termínů)</option>
+                    <option value={10}>10× (celkem 10 termínů)</option>
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Timetable Validation Notice / Slot Selector */}
