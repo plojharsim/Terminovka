@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies, headers } from "next/headers";
-import { createHash } from "crypto";
+import { verifyOAuthToken } from "./oauth";
 import { prisma } from "./prisma";
 
 const SECRET_KEY = new TextEncoder().encode(
@@ -33,31 +33,26 @@ export async function verifyToken(token: string): Promise<SessionPayload | null>
   }
 }
 
-export function hashApiToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-// Autorizace přes osobní API token (AI / MCP): "Authorization: Bearer trm_..."
+// Autorizace přes OAuth access token (AI konektory, např. web Claude): "Authorization: Bearer <JWT>"
 async function getUserFromBearerToken(): Promise<SessionPayload | null> {
   const auth = (await headers()).get("authorization");
-  const match = auth?.match(/^Bearer\s+(trm_[A-Za-z0-9_-]+)$/);
+  const match = auth?.match(/^Bearer\s+(\S+)$/);
   if (!match) return null;
 
-  const record = await prisma.apiToken.findUnique({
-    where: { tokenHash: hashApiToken(match[1]) },
-    include: { user: { select: { id: true, email: true, name: true, role: true, isActive: true } } },
-  });
-  if (!record || !record.user.isActive) return null;
+  const claims = await verifyOAuthToken(match[1], "access");
+  if (!claims) return null;
 
-  prisma.apiToken
-    .update({ where: { id: record.id }, data: { lastUsedAt: new Date() } })
-    .catch(() => {});
+  const user = await prisma.user.findUnique({
+    where: { id: claims.sub },
+    select: { id: true, email: true, name: true, role: true, isActive: true },
+  });
+  if (!user || !user.isActive) return null;
 
   return {
-    userId: record.user.id,
-    email: record.user.email,
-    name: record.user.name,
-    role: record.user.role as "ADMIN" | "EDITOR",
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role as "ADMIN" | "EDITOR",
   };
 }
 

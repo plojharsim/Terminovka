@@ -127,7 +127,9 @@ npm run dev
 
 ---
 
-## 7. Přístup pro AI (MCP server)
+## 7. Přístup pro AI (MCP server + OAuth)
 - Endpoint `POST /api/mcp` (`src/app/api/mcp/route.ts`) – MCP Streamable HTTP, bezstavový JSON-RPC. Nástroje: `get_overview`, `list_events`, `check_timetable`, `create_event`, `update_event`, `delete_event`. Volají přímo existující API handlery, takže platí stejná oprávnění a validace jako ve webu.
-- Autorizace: osobní token `Authorization: Bearer trm_...`. Model `ApiToken` ukládá jen SHA-256 hash; tokeny spravuje přihlášený uživatel v okně „Přístup pro AI" (`AiAccessModal.tsx`, patička) přes `/api/tokens`. `getCurrentUser()` v `src/lib/auth.ts` přijímá cookie i bearer token; správa tokenů bearerem možná není.
+- Připojení ve webovém Claude: Nastavení → Konektory → Přidat vlastní konektor → URL `https://terminovka.plojharsim.cz/api/mcp`. Claude si sám provede OAuth; uživatel se na `/oauth/authorize` přihlásí běžným e-mailem a heslem a souhlas potvrdí. V samotné aplikaci žádné UI pro AI není.
+- OAuth 2.1 je **bezstavové** (`src/lib/oauth.ts`): `client_id`, authorization code, access (1 h) a refresh token (30 dní) jsou JWT podepsané klíčem odvozeným z `AUTH_SECRET` (žádné tabulky). Routy: `/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`, `/api/oauth/register|authorize|token`, stránka `/oauth/authorize`. PKCE (S256) je povinné. `getCurrentUser()` přijímá cookie i Bearer access token; uživatel se při každém použití ověřuje v DB (deaktivace účtu okamžitě zablokuje AI).
+- Bez nastaveného `AUTH_SECRET` OAuth nefunguje (záměrně bez veřejného fallbacku). Zrušení přístupu = odpojení konektoru v Claude, nebo změna `AUTH_SECRET` (odhlásí i všechny uživatele).
 - **Pozor – sdílená DB:** v produkční databázi jsou i cizí tabulky `personal_os_kv` a `personal_os_media`. `prisma db push` je proto chce smazat a bez `--accept-data-loss` skončí chybou (`scripts/auto-build.js` to jen zaloguje a build pokračuje). Nové tabulky se proto zakládají ručně aditivním SQL (`CREATE TABLE IF NOT EXISTS`), nikdy `--accept-data-loss`.

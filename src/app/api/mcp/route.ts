@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { CORS_HEADERS, corsPreflight, getOrigin } from "@/lib/oauth";
 import { GET as eventsGET, POST as eventsPOST } from "@/app/api/events/route";
 import { PUT as eventPUT, DELETE as eventDELETE } from "@/app/api/events/[id]/route";
 import { GET as metaGET } from "@/app/api/meta/route";
@@ -216,11 +217,14 @@ async function handle(msg: Json) {
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
-  // MCP vyžaduje osobní token (Authorization: Bearer trm_...), ne cookie relaci.
+  // MCP vyžaduje OAuth access token (Authorization: Bearer …), ne cookie relaci.
   if (!user || !request.headers.get("authorization")) {
-    return NextResponse.json(rpcError(null, -32001, "Neautorizováno – použijte hlavičku Authorization: Bearer <token>"), {
+    return NextResponse.json(rpcError(null, -32001, "Neautorizováno – použijte hlavičku Authorization: Bearer <access token>"), {
       status: 401,
-      headers: { "WWW-Authenticate": 'Bearer realm="terminovka"' },
+      headers: {
+        "WWW-Authenticate": `Bearer resource_metadata="${getOrigin(request)}/.well-known/oauth-protected-resource"`,
+        ...CORS_HEADERS,
+      },
     });
   }
 
@@ -242,3 +246,5 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return new NextResponse("MCP endpoint – použijte POST (Streamable HTTP).", { status: 405, headers: { Allow: "POST" } });
 }
+
+export const OPTIONS = corsPreflight;
