@@ -4,6 +4,7 @@ import { ANON_SUB, CORS_HEADERS, corsPreflight, getAccessClaims, getOrigin } fro
 import { GET as eventsGET, POST as eventsPOST } from "@/app/api/events/route";
 import { PUT as eventPUT, DELETE as eventDELETE } from "@/app/api/events/[id]/route";
 import { GET as metaGET } from "@/app/api/meta/route";
+import { validateEventAgainstTimetable } from "@/lib/timetable";
 import { GET as checkGET } from "@/app/api/timetable/check/route";
 
 // MCP server (Streamable HTTP, bezstavový, JSON odpovědi).
@@ -30,7 +31,7 @@ const eventFields = {
   date: { type: "string", description: "Datum ve formátu YYYY-MM-DD" },
   subjectId: { type: "string", description: "ID předmětu (z get_overview), nebo vynechat" },
   groupId: { type: "string", description: "ID skupiny (z get_overview); vynechat nebo 'ALL' = celá třída" },
-  period: { type: "number", description: "Vyučovací hodina 1–10" },
+  period: { type: "number", description: "Vyučovací hodina 1–10. U TEST POVINNÁ: musí to být hodina, kdy se předmět ten den učí (viz check_timetable). Nikdy ji nehádej – zeptej se uživatele." },
   hasSpecificTime: { type: "boolean" },
   startTime: { type: "string", description: "HH:MM" },
   endTime: { type: "string", description: "HH:MM" },
@@ -62,7 +63,7 @@ const TOOLS = [
   },
   {
     name: "check_timetable",
-    description: "Ověří, zda se předmět (a skupina) v daný den podle rozvrhu vyučuje. Test lze naplánovat jen v takový den.",
+    description: "Ověří, zda se předmět (a skupina) v daný den podle rozvrhu vyučuje, a vrátí dostupné hodiny (slots). Použij před vytvořením testu a nabídni uživateli hodiny, ať jednu vybere.",
     inputSchema: {
       type: "object",
       properties: {
@@ -75,7 +76,7 @@ const TOOLS = [
   },
   {
     name: "create_event",
-    description: "Vytvoří událost jménem přihlášeného uživatele (u nepřihlášeného selže). Lze nastavit opakování (série se sdílí přes recurringId).",
+    description: "Vytvoří událost jménem přihlášeného uživatele (u nepřihlášeného selže). Postup u TEST: zjisti předmět, datum a skupinu, zavolej check_timetable, nech UŽIVATELE vybrat konkrétní hodinu a teprve pak vytvoř; hodinu ani skupinu nikdy nevybírej za něj. Lze nastavit opakování (série se sdílí přes recurringId).",
     inputSchema: {
       type: "object",
       properties: {
@@ -109,6 +110,58 @@ const TOOLS = [
     },
   },
 ];
+
+type TimetableSlot = {
+  period: number; startTime: string; endTime: string; room?: string | null;
+  groupId: string | null; groupName?: string | null;
+};
+
+const describeSlots = (slots: TimetableSlot[]) =>
+  slots
+    .map((s) => `${s.period}. hodina (${s.startTime}–${s.endTime}${s.room ? `, ${s.room}` : ""}${s.groupName ? `, skupina ${s.groupName}` : ""})`)
+    .join("; ");
+
+// Stejně jako ve webovém formuláři musí být událost svázaná s konkrétní hodinou z rozvrhu.
+// Web první hodinu předvybere, AI ale nesmí hádat – musí hodinu zvolit (a zeptat se uživatele).
+// U testu je hodina povinná; u ostatních typů se ověří jen tehdy, když ji AI zadá.
+async function prepareEventArgs(args: Json): Promise<Json> {
+  const type = String(args.type || "");
+  const date = String(args.date || "");
+  const subjectId = typeof args.subjectId === "string" && args.subjectId !== "none" ? args.subjectId : null;
+  const groupId = typeof args.groupId === "string" && args.groupId !== "ALL" ? args.groupId : null;
+  const period = args.period != null && args.period !== "" ? Number(args.period) : null;
+
+  if (type === "TEST" && !subjectId) {
+    throw new Error("Test musí mít předmět (subjectId z get_overview). Zeptej se uživatele, z jakého předmětu test je.");
+  }
+  if (!subjectId || !date || (type !== "TEST" && period === null)) return args;
+
+  const check = await validateEventAgainstTimetable(date, subjectId, groupId);
+  if (!check.valid) {
+    if (type === "TEST") throw new Error(check.message || "V tento den se předmět nevyučuje.");
+    return args; // úkoly a ostatní lze uložit i mimo hodinu
+  }
+  const slots = check.slots as unknown as TimetableSlot[];
+
+  if (period === null) {
+    throw new Error(
+      `Test musí být navázaný na konkrétní vyučovací hodinu. Zeptej se uživatele, na kterou, a zadej ji v poli period. Dostupné hodiny dne ${date}: ${describeSlots(slots)}.`
+    );
+  }
+
+  const chosen = slots.filter((sl) => sl.period === period);
+  if (chosen.length === 0) {
+    throw new Error(`V den ${date} se předmět v ${period}. hodině nevyučuje. Dostupné hodiny: ${describeSlots(slots)}. Zeptej se uživatele, kterou zvolit.`);
+  }
+
+  // Předmět se tu učí po skupinách – bez zvolené skupiny nelze poznat, které se událost týká.
+  const groupsInPeriod = new Set(chosen.map((sl) => sl.groupId).filter(Boolean));
+  if (!groupId && groupsInPeriod.size > 1) {
+    throw new Error(`V ${period}. hodině se předmět učí po skupinách (${describeSlots(chosen)}). Zeptej se uživatele, pro kterou skupinu událost je, a zadej groupId.`);
+  }
+
+  return { ...args, period, hasSpecificTime: true, startTime: chosen[0].startTime, endTime: chosen[0].endTime };
+}
 
 function req(path: string, method = "GET", body?: unknown, search?: Record<string, string | undefined>) {
   const url = new URL(path, ORIGIN);
@@ -174,12 +227,13 @@ async function callTool(name: string, args: Json, ctx: Ctx) {
     case "check_timetable":
       return unwrap(await checkGET(req("/api/timetable/check", "GET", undefined, { date: str("date"), subjectId: str("subjectId"), groupId: str("groupId") })));
     case "create_event": {
-      const d = (await unwrap(await eventsPOST(req("/api/events", "POST", args)))) as Json;
+      const d = (await unwrap(await eventsPOST(req("/api/events", "POST", await prepareEventArgs(args))))) as Json;
       const ev = d.event as Json;
       return { created: d.count, id: ev.id, title: ev.title, date: String(ev.date).slice(0, 10), recurringId: ev.recurringId };
     }
     case "update_event": {
-      const { id, ...body } = args;
+      const { id, ...rawBody } = args;
+      const body = await prepareEventArgs(rawBody);
       const d = (await unwrap(await eventPUT(req(`/api/events/${id}`, "PUT", body), { params: Promise.resolve({ id: String(id) }) }))) as Json;
       const ev = d.event as Json;
       return { updated: true, id: ev.id, title: ev.title, date: String(ev.date).slice(0, 10) };
@@ -207,7 +261,7 @@ async function handle(msg: Json, ctx: Ctx) {
           protocolVersion: PROTOCOL_VERSION,
           capabilities: { tools: {} },
           serverInfo: { name: "terminovka", version: "1.0.0" },
-          instructions: "Termínovka – školní systém písemek, úkolů a rozvrhu třídy 1.B SSPŠ. Začni get_overview. Data zadávej jako YYYY-MM-DD. Test lze uložit jen v den výuky předmětu.",
+          instructions: "Termínovka – školní systém písemek, úkolů a rozvrhu třídy 1.B SSPŠ. Začni get_overview. Data zadávej jako YYYY-MM-DD. Test lze uložit jen v den výuky předmětu a vždy s konkrétní hodinou, kterou vybral uživatel.",
         },
       };
     case "ping":
