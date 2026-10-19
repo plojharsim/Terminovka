@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { createHash } from "crypto";
 import { prisma } from "./prisma";
 
 const SECRET_KEY = new TextEncoder().encode(
@@ -32,7 +33,38 @@ export async function verifyToken(token: string): Promise<SessionPayload | null>
   }
 }
 
+export function hashApiToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+// Autorizace přes osobní API token (AI / MCP): "Authorization: Bearer trm_..."
+async function getUserFromBearerToken(): Promise<SessionPayload | null> {
+  const auth = (await headers()).get("authorization");
+  const match = auth?.match(/^Bearer\s+(trm_[A-Za-z0-9_-]+)$/);
+  if (!match) return null;
+
+  const record = await prisma.apiToken.findUnique({
+    where: { tokenHash: hashApiToken(match[1]) },
+    include: { user: { select: { id: true, email: true, name: true, role: true, isActive: true } } },
+  });
+  if (!record || !record.user.isActive) return null;
+
+  prisma.apiToken
+    .update({ where: { id: record.id }, data: { lastUsedAt: new Date() } })
+    .catch(() => {});
+
+  return {
+    userId: record.user.id,
+    email: record.user.email,
+    name: record.user.name,
+    role: record.user.role as "ADMIN" | "EDITOR",
+  };
+}
+
 export async function getCurrentUser(): Promise<SessionPayload | null> {
+  const bearerUser = await getUserFromBearerToken();
+  if (bearerUser) return bearerUser;
+
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;

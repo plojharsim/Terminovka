@@ -17,6 +17,7 @@ import { LoginModal } from "@/components/LoginModal";
 import { TimetableGrid } from "@/components/TimetableGrid";
 import { CalendarMonthView } from "@/components/CalendarMonthView";
 import { AdminPanelModal } from "@/components/AdminPanelModal";
+import { AiAccessModal } from "@/components/AiAccessModal";
 import { DashboardView } from "@/components/DashboardView";
 import { GroupSelectionModal } from "@/components/GroupSelectionModal";
 import { DeleteRecurringModal } from "@/components/DeleteRecurringModal";
@@ -122,6 +123,7 @@ export default function HomePage() {
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const [isIcalModalOpen, setIsIcalModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
 
   // Load User, Metadata & Events
@@ -634,6 +636,17 @@ export default function HomePage() {
             </div>
 
             <div className="text-slate-400 text-center sm:text-right">
+              {currentUser && (
+                <>
+                  <button
+                    onClick={() => setIsAiModalOpen(true)}
+                    className="text-[#DDA300] hover:underline font-bold"
+                  >
+                    Přístup pro AI
+                  </button>
+                  <span className="text-slate-500"> · </span>
+                </>
+              )}
               Vytvořil{" "}
               <a
                 href="https://plojharsim.cz"
@@ -677,6 +690,10 @@ export default function HomePage() {
         selectedGroupIds={selectedGroupIds}
         onOpenGroupModal={() => setIsGroupModalOpen(true)}
       />
+
+      {currentUser && (
+        <AiAccessModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
+      )}
 
       <LoginModal
         isOpen={isLoginModalOpen}

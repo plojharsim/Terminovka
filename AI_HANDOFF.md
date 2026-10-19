@@ -124,3 +124,10 @@ npm run dev
    npx vercel --prod --yes
    ```
    *(Vercel CLI je v projektu nalinkované ve složce `.vercel`).*
+
+---
+
+## 7. Přístup pro AI (MCP server)
+- Endpoint `POST /api/mcp` (`src/app/api/mcp/route.ts`) – MCP Streamable HTTP, bezstavový JSON-RPC. Nástroje: `get_overview`, `list_events`, `check_timetable`, `create_event`, `update_event`, `delete_event`. Volají přímo existující API handlery, takže platí stejná oprávnění a validace jako ve webu.
+- Autorizace: osobní token `Authorization: Bearer trm_...`. Model `ApiToken` ukládá jen SHA-256 hash; tokeny spravuje přihlášený uživatel v okně „Přístup pro AI" (`AiAccessModal.tsx`, patička) přes `/api/tokens`. `getCurrentUser()` v `src/lib/auth.ts` přijímá cookie i bearer token; správa tokenů bearerem možná není.
+- **Pozor – sdílená DB:** v produkční databázi jsou i cizí tabulky `personal_os_kv` a `personal_os_media`. `prisma db push` je proto chce smazat a bez `--accept-data-loss` skončí chybou (`scripts/auto-build.js` to jen zaloguje a build pokračuje). Nové tabulky se proto zakládají ručně aditivním SQL (`CREATE TABLE IF NOT EXISTS`), nikdy `--accept-data-loss`.
