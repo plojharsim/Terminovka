@@ -34,6 +34,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 1. If Vercel Blob is configured (production on Vercel)
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const { put } = await import("@vercel/blob");
+      const ext = path.extname(file.name) || "";
+      const cleanBase = path
+        .basename(file.name, ext)
+        .replace(/[^a-zA-Z0-9_\-\u00C0-\u017F]/g, "_")
+        .slice(0, 50);
+      const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const savedFilename = `uploads/${uniqueSuffix}-${cleanBase}${ext}`;
+
+      const blob = await put(savedFilename, file, {
+        access: "public",
+      });
+
+      return NextResponse.json({
+        success: true,
+        url: blob.url,
+        name: file.name,
+        size: file.size,
+      });
+    }
+
+    // 2. Fallback to local storage (local development or Docker)
     const uploadsDir = getUploadsDir();
 
     // Sanitize filename and create unique name

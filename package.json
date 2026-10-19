@@ -4,15 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && node scripts/auto-build.js && next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
+    "db:import": "node scripts/import-postgres.js",
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
+    "@vercel/blob": "^2.8.1",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.4.0",
     "ical-generator": "^11.1.2",

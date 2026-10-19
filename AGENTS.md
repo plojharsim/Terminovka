@@ -7,3 +7,13 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Project Context: Termínovka (1.B SSPŠ)
+
+Before making any changes, read **`AI_HANDOFF.md`** in the project root for full architecture, database schema, production Vercel/Neon configuration, and critical business rules.
+
+- **Production URL:** `https://terminovka.plojharsim.cz`
+- **Database:** PostgreSQL (Neon via Vercel Storage) – configured in `.env.local`. **NEVER reset or wipe database data!**
+- **File Uploads:** Vercel Blob (`@vercel/blob`) with local fallback.
+- **Date handling:** Always use `toLocalDateString` and `getEventDateString` from `src/lib/formatters.ts` to prevent UTC/CET off-by-one day bugs.
+
