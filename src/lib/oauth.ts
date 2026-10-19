@@ -8,6 +8,9 @@ import { NextResponse } from "next/server";
 
 export type OAuthTokenType = "client" | "code" | "access" | "refresh";
 
+// sub anonymního tokenu: nepřihlášený uživatel, pouze čtení
+export const ANON_SUB = "anon";
+
 export const ACCESS_TTL_SECONDS = 60 * 60; // 1 hodina
 export const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 dní
 
@@ -86,4 +89,13 @@ export function oauthError(error: string, description: string, status = 400) {
     { error, error_description: description },
     { status, headers: { ...CORS_HEADERS, "Cache-Control": "no-store" } }
   );
+}
+
+// Přístupový token z hlavičky Authorization (bez ohledu na to, zda je uživatel přihlášen).
+export async function getAccessClaims(request: Request) {
+  const match = request.headers.get("authorization")?.match(/^Bearer\s+(\S+)$/);
+  if (!match) return null;
+  const claims = await verifyOAuthToken(match[1], "access");
+  if (!claims) return null;
+  return { sub: claims.sub, groupIds: Array.isArray(claims.grp) ? (claims.grp as string[]) : [] };
 }

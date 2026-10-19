@@ -7,6 +7,7 @@ import { Bot } from "lucide-react";
 interface ConsentInfo {
   client: { name: string; host: string };
   user: { name: string; email: string } | null;
+  groups: { id: string; name: string; code: string }[];
 }
 
 function AuthorizeForm() {
@@ -17,6 +18,8 @@ function AuthorizeForm() {
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [showLogin, setShowLogin] = useState(false);
 
   const redirectUri = params.get("redirect_uri") || "";
 
@@ -30,11 +33,18 @@ function AuthorizeForm() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Neplatný požadavek");
         setInfo(data);
+        // Předvyplníme skupiny, které má uživatel zvolené přímo na webu Termínovky
+        try {
+          const saved = JSON.parse(localStorage.getItem("terminovka_selected_groups") || "[]");
+          if (Array.isArray(saved)) {
+            setSelected(saved.filter((id: string) => data.groups.some((g: { id: string }) => g.id === id)));
+          }
+        } catch {}
       })
       .catch((e) => setFatal(e.message));
   }, [params, redirectUri]);
 
-  const approve = async (useCredentials: boolean) => {
+  const approve = async (mode: "session" | "credentials" | "anonymous") => {
     setBusy(true);
     setError("");
     try {
@@ -48,7 +58,9 @@ function AuthorizeForm() {
           code_challenge: params.get("code_challenge"),
           code_challenge_method: params.get("code_challenge_method"),
           state: params.get("state"),
-          ...(useCredentials ? { email, password } : {}),
+          groups: selected,
+          ...(mode === "credentials" ? { email, password } : {}),
+          ...(mode === "anonymous" ? { anonymous: true } : {}),
         }),
       });
       const data = await res.json();
@@ -88,9 +100,36 @@ function AuthorizeForm() {
         ) : (
           <>
             <p>
-              Aplikace <strong>{info.client.name}</strong> ({info.client.host}) chce číst a spravovat termíny
-              v Termínovce <strong>jako ty</strong> – se stejnými oprávněními jako máš na webu.
+              Aplikace <strong>{info.client.name}</strong> ({info.client.host}) chce přistupovat k termínům
+              v Termínovce. Přihlášený uživatel má stejná oprávnění jako na webu.
             </p>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Moje skupiny</span>
+                <span className="text-xs space-x-2">
+                  <button type="button" className="text-[#DDA300] hover:underline" onClick={() => setSelected(info.groups.map((g) => g.id))}>vše</button>
+                  <button type="button" className="text-[#DDA300] hover:underline" onClick={() => setSelected([])}>žádné</button>
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                AI uvidí události a rozvrh pro celou třídu a pro vybrané skupiny, nic dalšího.
+              </p>
+              <div className="max-h-44 overflow-y-auto grid grid-cols-2 gap-1.5 p-2 rounded-lg border border-slate-200 dark:border-[#23295C]">
+                {info.groups.map((g) => (
+                  <label key={g.id} className="flex items-center space-x-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(g.id)}
+                      onChange={(e) =>
+                        setSelected((cur) => (e.target.checked ? [...cur, g.id] : cur.filter((id) => id !== g.id)))
+                      }
+                    />
+                    <span>{g.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
 
             {info.user ? (
               <div className="space-y-3">
@@ -100,7 +139,7 @@ function AuthorizeForm() {
                 <div className="flex gap-2">
                   <button
                     disabled={busy}
-                    onClick={() => approve(false)}
+                    onClick={() => approve("session")}
                     className="flex-1 px-4 py-2.5 rounded-lg bg-[#0D0F26] dark:bg-white text-white dark:text-[#0D0F26] text-sm font-bold hover:opacity-90 disabled:opacity-50"
                   >
                     Povolit
@@ -115,28 +154,46 @@ function AuthorizeForm() {
                 </div>
               </div>
             ) : (
-              <form
-                className="space-y-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  approve(true);
-                }}
-              >
-                <input className={input} type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" />
-                <input className={input} type="password" placeholder="Heslo" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
+              <div className="space-y-3">
                 <div className="flex gap-2">
                   <button
-                    type="submit"
+                    type="button"
                     disabled={busy}
+                    onClick={() => approve("anonymous")}
                     className="flex-1 px-4 py-2.5 rounded-lg bg-[#0D0F26] dark:bg-white text-white dark:text-[#0D0F26] text-sm font-bold hover:opacity-90 disabled:opacity-50"
                   >
-                    Přihlásit a povolit
+                    Pokračovat bez přihlášení
                   </button>
                   <button type="button" disabled={busy} onClick={deny} className="px-4 py-2.5 rounded-lg border border-slate-300 dark:border-[#222752] text-sm font-bold">
                     Zamítnout
                   </button>
                 </div>
-              </form>
+                <p className="text-xs text-slate-500">Bez přihlášení může AI termíny jen číst.</p>
+
+                {!showLogin ? (
+                  <button type="button" onClick={() => setShowLogin(true)} className="text-xs text-[#DDA300] hover:underline font-bold">
+                    Přihlásit se, aby AI mohla termíny i zakládat a upravovat
+                  </button>
+                ) : (
+                  <form
+                    className="space-y-3 pt-1"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      approve("credentials");
+                    }}
+                  >
+                    <input className={input} type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" />
+                    <input className={input} type="password" placeholder="Heslo" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      className="w-full px-4 py-2.5 rounded-lg border border-[#DDA300] text-[#DDA300] text-sm font-bold hover:bg-[#DDA300]/10 disabled:opacity-50"
+                    >
+                      Přihlásit a povolit
+                    </button>
+                  </form>
+                )}
+              </div>
             )}
             {error && <p className="text-xs text-red-500">{error}</p>}
             <p className="text-xs text-slate-500">Přístup můžeš kdykoliv odebrat odpojením konektoru v Claude.</p>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { oauthEnabled, signOAuthToken, verifyOAuthToken } from "@/lib/oauth";
+import { ANON_SUB, oauthEnabled, signOAuthToken, verifyOAuthToken } from "@/lib/oauth";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,12 @@ export async function GET(request: NextRequest) {
   if (!client) return NextResponse.json({ error: "Neplatný klient nebo redirect_uri" }, { status: 400 });
 
   const user = await getCurrentUser();
-  return NextResponse.json({ client, user: user ? { name: user.name, email: user.email } : null });
+  const groups = await prisma.studentGroup.findMany({
+    where: { isDefaultAll: false },
+    select: { id: true, name: true, code: true },
+    orderBy: { name: "asc" },
+  });
+  return NextResponse.json({ client, user: user ? { name: user.name, email: user.email } : null, groups });
 }
 
 // Udělení souhlasu: přihlášenou relací (cookie), nebo e-mailem a heslem. Vrací adresu pro přesměrování.
@@ -38,8 +43,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Vyžadován response_type=code a PKCE (S256)" }, { status: 400 });
   }
 
+  // Skupiny, které AI uvidí (celá třída je vždy zahrnuta). Ověříme je proti databázi.
+  const requested: string[] = Array.isArray(b.groups) ? b.groups.map(String) : [];
+  const validGroups = await prisma.studentGroup.findMany({
+    where: { id: { in: requested }, isDefaultAll: false },
+    select: { id: true },
+  });
+  const grp = validGroups.map((g) => g.id);
+
   let userId: string | null = null;
-  if (b.email && b.password) {
+  if (b.anonymous === true) {
+    userId = ANON_SUB; // bez přihlášení – pouze čtení
+  } else if (b.email && b.password) {
     const user = await prisma.user.findUnique({ where: { email: String(b.email).trim().toLowerCase() } });
     if (!user || !user.isActive || !(await bcrypt.compare(String(b.password), user.passwordHash))) {
       return NextResponse.json({ error: "Neplatný e-mail nebo heslo" }, { status: 401 });
@@ -52,7 +67,7 @@ export async function POST(request: NextRequest) {
 
   const code = await signOAuthToken(
     "code",
-    { sub: userId, cid: b.client_id, ru: b.redirect_uri, cc: b.code_challenge },
+    { sub: userId, cid: b.client_id, ru: b.redirect_uri, cc: b.code_challenge, grp },
     300
   );
   const redirect = new URL(b.redirect_uri);

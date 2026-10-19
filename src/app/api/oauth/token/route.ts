@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
-  ACCESS_TTL_SECONDS, CORS_HEADERS, REFRESH_TTL_SECONDS, corsPreflight,
+  ACCESS_TTL_SECONDS, ANON_SUB, CORS_HEADERS, REFRESH_TTL_SECONDS, corsPreflight,
   oauthEnabled, oauthError, pkceMatches, signOAuthToken, verifyOAuthToken,
 } from "@/lib/oauth";
 
 export const dynamic = "force-dynamic";
 
-async function issueTokens(userId: string, clientId: string) {
+async function issueTokens(userId: string, clientId: string, groups: unknown) {
+  const grp = Array.isArray(groups) ? groups : [];
   const [access, refresh] = await Promise.all([
-    signOAuthToken("access", { sub: userId, cid: clientId }, ACCESS_TTL_SECONDS),
-    signOAuthToken("refresh", { sub: userId, cid: clientId }, REFRESH_TTL_SECONDS),
+    signOAuthToken("access", { sub: userId, cid: clientId, grp }, ACCESS_TTL_SECONDS),
+    signOAuthToken("refresh", { sub: userId, cid: clientId, grp }, REFRESH_TTL_SECONDS),
   ]);
   return NextResponse.json(
     { access_token: access, token_type: "Bearer", expires_in: ACCESS_TTL_SECONDS, refresh_token: refresh, scope: "terminovka" },
@@ -19,6 +20,7 @@ async function issueTokens(userId: string, clientId: string) {
 }
 
 async function activeUser(userId: string) {
+  if (userId === ANON_SUB) return true;
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { isActive: true } });
   return !!user?.isActive;
 }
@@ -44,14 +46,14 @@ export async function POST(request: NextRequest) {
       return oauthError("invalid_grant", "PKCE ověření selhalo");
     }
     if (!(await activeUser(code.sub))) return oauthError("invalid_grant", "Uživatel není aktivní");
-    return issueTokens(code.sub, clientId);
+    return issueTokens(code.sub, clientId, code.grp);
   }
 
   if (grantType === "refresh_token") {
     const refresh = await verifyOAuthToken(get("refresh_token"), "refresh");
     if (!refresh || refresh.cid !== clientId) return oauthError("invalid_grant", "Neplatný refresh token");
     if (!(await activeUser(refresh.sub))) return oauthError("invalid_grant", "Uživatel není aktivní");
-    return issueTokens(refresh.sub, clientId);
+    return issueTokens(refresh.sub, clientId, refresh.grp);
   }
 
   return oauthError("unsupported_grant_type", "Podporováno: authorization_code, refresh_token");

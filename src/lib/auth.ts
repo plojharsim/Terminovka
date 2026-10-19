@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies, headers } from "next/headers";
-import { verifyOAuthToken } from "./oauth";
+import { ANON_SUB, verifyOAuthToken } from "./oauth";
 import { prisma } from "./prisma";
 
 const SECRET_KEY = new TextEncoder().encode(
@@ -40,7 +40,7 @@ async function getUserFromBearerToken(): Promise<SessionPayload | null> {
   if (!match) return null;
 
   const claims = await verifyOAuthToken(match[1], "access");
-  if (!claims) return null;
+  if (!claims || claims.sub === ANON_SUB) return null; // anonymní token = jen čtení, bez uživatele
 
   const user = await prisma.user.findUnique({
     where: { id: claims.sub },

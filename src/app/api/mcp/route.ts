@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { CORS_HEADERS, corsPreflight, getOrigin } from "@/lib/oauth";
+import { ANON_SUB, CORS_HEADERS, corsPreflight, getAccessClaims, getOrigin } from "@/lib/oauth";
 import { GET as eventsGET, POST as eventsPOST } from "@/app/api/events/route";
 import { PUT as eventPUT, DELETE as eventDELETE } from "@/app/api/events/[id]/route";
 import { GET as metaGET } from "@/app/api/meta/route";
@@ -16,6 +16,13 @@ const PROTOCOL_VERSION = "2025-03-26";
 const ORIGIN = "http://internal";
 
 type Json = Record<string, unknown>;
+// Kontext tokenu: skupiny, které si uživatel vybral, a zda je nepřihlášený (jen čtení).
+type Ctx = { groupIds: string[]; anonymous: boolean };
+
+// Stejné pravidlo jako na webu: položka bez skupiny / pro celou třídu je vidět vždy,
+// položka pro dělenou skupinu jen tomu, kdo v ní je.
+const visible = (item: { groupId?: unknown; group?: Json | null }, ctx: Ctx) =>
+  !item.groupId || Boolean(item.group?.isDefaultAll) || ctx.groupIds.includes(String(item.groupId));
 
 const eventFields = {
   title: { type: "string", description: "Název události" },
@@ -36,12 +43,12 @@ const eventFields = {
 const TOOLS = [
   {
     name: "get_overview",
-    description: "Přehled aplikace: předměty (s ID), skupiny (s ID), rozvrh hodin, časy zvonění a aktuální typ týdne (sudý/lichý). Zavolej jako první, abys znal ID předmětů a skupin.",
+    description: "Přehled aplikace: předměty (s ID), skupiny uživatele (s ID), jeho rozvrh hodin, časy zvonění a aktuální typ týdne (sudý/lichý). Zavolej jako první, abys znal ID předmětů a skupin.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "list_events",
-    description: "Vypíše události (testy, úkoly, termíny, akce), seřazené podle data. Filtrovat lze podle období, typu, předmětu, skupiny a textu.",
+    description: "Vypíše události (testy, úkoly, termíny, akce), seřazené podle data. Vidíš jen události pro celou třídu a pro skupiny, které si uživatel při připojení vybral. Filtrovat lze podle období, typu, předmětu a textu.",
     inputSchema: {
       type: "object",
       properties: {
@@ -49,7 +56,6 @@ const TOOLS = [
         to: { type: "string", description: "Do data YYYY-MM-DD (včetně)" },
         type: { type: "string", enum: ["TEST", "HOMEWORK", "DEADLINE", "OTHER"] },
         subjectId: { type: "string" },
-        group: { type: "string", description: "ID nebo kód skupiny; zahrne i události pro celou třídu" },
         search: { type: "string" },
       },
     },
@@ -69,7 +75,7 @@ const TOOLS = [
   },
   {
     name: "create_event",
-    description: "Vytvoří událost jménem uživatele tokenu. Lze nastavit opakování (série se sdílí přes recurringId).",
+    description: "Vytvoří událost jménem přihlášeného uživatele (u nepřihlášeného selže). Lze nastavit opakování (série se sdílí přes recurringId).",
     inputSchema: {
       type: "object",
       properties: {
@@ -120,15 +126,21 @@ async function unwrap(res: Response) {
   return data;
 }
 
-async function callTool(name: string, args: Json) {
+async function callTool(name: string, args: Json, ctx: Ctx) {
+  if (ctx.anonymous && ["create_event", "update_event", "delete_event"].includes(name)) {
+    throw new Error("Uživatel je připojen bez přihlášení, takže může termíny jen číst. Pro úpravy je nutné konektor odpojit a znovu připojit s přihlášením.");
+  }
   const str = (k: string) => (typeof args[k] === "string" ? (args[k] as string) : undefined);
   switch (name) {
     case "get_overview": {
       const d = (await unwrap(await metaGET())) as Json;
       return {
         subjects: (d.subjects as Json[]).map((s) => ({ id: s.id, name: s.name, code: s.code, teacher: s.teacher })),
-        groups: (d.groups as Json[]).map((g) => ({ id: g.id, name: g.name, code: g.code, isWholeClass: g.isDefaultAll })),
-        scheduleSlots: (d.scheduleSlots as Json[]).map((s) => ({
+        groups: (d.groups as Json[])
+          .filter((g) => g.isDefaultAll || ctx.groupIds.includes(String(g.id)))
+          .map((g) => ({ id: g.id, name: g.name, code: g.code, isWholeClass: g.isDefaultAll })),
+        loggedIn: !ctx.anonymous,
+        scheduleSlots: (d.scheduleSlots as Json[]).filter((s) => visible(s as { groupId?: unknown; group?: Json | null }, ctx)).map((s) => ({
           day: s.dayOfWeek, period: s.period, start: s.startTime, end: s.endTime, room: s.room,
           weekType: s.weekType, subject: (s.subject as Json)?.code, group: (s.group as Json)?.code ?? null,
         })),
@@ -139,11 +151,12 @@ async function callTool(name: string, args: Json) {
     }
     case "list_events": {
       const d = (await unwrap(
-        await eventsGET(req("/api/events", "GET", undefined, { type: str("type"), subjectId: str("subjectId"), group: str("group"), search: str("search") }))
+        await eventsGET(req("/api/events", "GET", undefined, { type: str("type"), subjectId: str("subjectId"), search: str("search") }))
       )) as { events: Json[] };
       const from = str("from");
       const to = str("to");
       const events = d.events
+        .filter((e) => visible(e as { groupId?: unknown; group?: Json | null }, ctx))
         .filter((e) => {
           const day = String(e.date).slice(0, 10);
           return (!from || day >= from) && (!to || day <= to);
@@ -182,7 +195,7 @@ async function callTool(name: string, args: Json) {
 const rpcError = (id: unknown, code: number, message: string) =>
   ({ jsonrpc: "2.0", id: id ?? null, error: { code, message } });
 
-async function handle(msg: Json) {
+async function handle(msg: Json, ctx: Ctx) {
   const { id, method, params } = msg as { id?: unknown; method?: string; params?: Json };
   if (id === undefined) return null; // notifikace (např. notifications/initialized)
 
@@ -203,7 +216,7 @@ async function handle(msg: Json) {
       return { jsonrpc: "2.0", id, result: { tools: TOOLS } };
     case "tools/call": {
       try {
-        const out = await callTool(String(params?.name), (params?.arguments as Json) || {});
+        const out = await callTool(String(params?.name), (params?.arguments as Json) || {}, ctx);
         return { jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(out, null, 2) }] } };
       } catch (e) {
         const message = e instanceof Error ? e.message : "Chyba";
@@ -216,9 +229,11 @@ async function handle(msg: Json) {
 }
 
 export async function POST(request: NextRequest) {
-  const user = await getCurrentUser();
   // MCP vyžaduje OAuth access token (Authorization: Bearer …), ne cookie relaci.
-  if (!user || !request.headers.get("authorization")) {
+  // Token může být i anonymní (nepřihlášený uživatel, jen čtení).
+  const claims = await getAccessClaims(request);
+  const authorized = claims && (claims.sub === ANON_SUB || (await getCurrentUser()));
+  if (!claims || !authorized) {
     return NextResponse.json(rpcError(null, -32001, "Neautorizováno – použijte hlavičku Authorization: Bearer <access token>"), {
       status: 401,
       headers: {
@@ -228,6 +243,8 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  const ctx: Ctx = { groupIds: claims.groupIds, anonymous: claims.sub === ANON_SUB };
+
   let body: unknown;
   try {
     body = await request.json();
@@ -236,10 +253,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (Array.isArray(body)) {
-    const results = (await Promise.all(body.map((m) => handle(m as Json)))).filter(Boolean);
+    const results = (await Promise.all(body.map((m) => handle(m as Json, ctx)))).filter(Boolean);
     return results.length ? NextResponse.json(results) : new NextResponse(null, { status: 202 });
   }
-  const result = await handle(body as Json);
+  const result = await handle(body as Json, ctx);
   return result ? NextResponse.json(result) : new NextResponse(null, { status: 202 });
 }
 
