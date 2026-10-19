@@ -35,7 +35,7 @@ function AuthorizeForm() {
         setInfo(data);
         // Předvyplníme skupiny, které má uživatel zvolené přímo na webu Termínovky
         try {
-          const saved = JSON.parse(localStorage.getItem("terminovka_selected_groups") || "[]");
+          const saved = JSON.parse(localStorage.getItem("terminovka_user_groups") || "[]");
           if (Array.isArray(saved)) {
             setSelected(saved.filter((id: string) => data.groups.some((g: { id: string }) => g.id === id)));
           }
@@ -113,7 +113,7 @@ function AuthorizeForm() {
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                AI uvidí události a rozvrh pro celou třídu a pro vybrané skupiny, nic dalšího.
+                AI uvidí události a rozvrh pro celou třídu a pro vybrané skupiny, nic dalšího. Přihlášený uživatel má skupiny uložené v profilu (mění se v Termínovce); tento výběr se použije bez přihlášení nebo pokud ještě nic uloženo nemá.
               </p>
               <div className="max-h-44 overflow-y-auto grid grid-cols-2 gap-1.5 p-2 rounded-lg border border-slate-200 dark:border-[#23295C]">
                 {info.groups.map((g) => (

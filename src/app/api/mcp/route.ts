@@ -4,6 +4,8 @@ import { ANON_SUB, CORS_HEADERS, corsPreflight, getAccessClaims, getOrigin } fro
 import { GET as eventsGET, POST as eventsPOST } from "@/app/api/events/route";
 import { PUT as eventPUT, DELETE as eventDELETE } from "@/app/api/events/[id]/route";
 import { GET as metaGET } from "@/app/api/meta/route";
+import { prisma } from "@/lib/prisma";
+import { parseGroupIds } from "@/lib/groups";
 import { validateEventAgainstTimetable } from "@/lib/timetable";
 import { GET as checkGET } from "@/app/api/timetable/check/route";
 
@@ -297,7 +299,15 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const ctx: Ctx = { groupIds: claims.groupIds, anonymous: claims.sub === ANON_SUB };
+  // Přihlášený uživatel: skupiny z jeho profilu v Termínovce (aktuální, mění se s webem).
+  // Pokud je ještě neuložil, použijí se skupiny zvolené při připojení konektoru.
+  const anonymous = claims.sub === ANON_SUB;
+  let groupIds = claims.groupIds;
+  if (!anonymous) {
+    const row = await prisma.user.findUnique({ where: { id: claims.sub }, select: { selectedGroupIds: true } });
+    groupIds = parseGroupIds(row?.selectedGroupIds) ?? groupIds;
+  }
+  const ctx: Ctx = { groupIds, anonymous };
 
   let body: unknown;
   try {

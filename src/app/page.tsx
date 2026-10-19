@@ -84,6 +84,47 @@ export default function HomePage() {
     }
   }, [groups]);
 
+  // Přihlášený uživatel má zvolené skupiny uložené i na serveru (aby je viděla AI / MCP).
+  // Po přihlášení: server má přednost; pokud ještě nic uloženo nemá, nahraje se výběr z tohoto prohlížeče.
+  const [syncedFor, setSyncedFor] = useState<string | null>(null);
+  const userEmail = currentUser?.email;
+  const groupsSynced = !!userEmail && syncedFor === userEmail;
+
+  useEffect(() => {
+    if (!userEmail) return;
+    let cancelled = false;
+    fetch("/api/auth/groups")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        if (Array.isArray(data.groupIds)) {
+          setSelectedGroupIds(data.groupIds);
+          try {
+            localStorage.setItem("terminovka_user_groups", JSON.stringify(data.groupIds));
+          } catch (e) {
+            // ignore
+          }
+        }
+        setSyncedFor(userEmail);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [userEmail]);
+
+  useEffect(() => {
+    if (!userEmail || !groupsSynced) return;
+    const timer = setTimeout(() => {
+      fetch("/api/auth/groups", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupIds: selectedGroupIds }),
+      }).catch(() => {});
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [selectedGroupIds, groupsSynced, userEmail]);
+
   const handleToggleGroup = (groupId: string) => {
     setSelectedGroupIds((prev) => {
       const next = prev.includes(groupId)

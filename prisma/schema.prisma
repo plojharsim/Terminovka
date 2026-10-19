@@ -14,6 +14,7 @@ model User {
   passwordHash String
   role         String   @default("EDITOR") // ADMIN or EDITOR
   isActive     Boolean  @default(true)
+  selectedGroupIds String? // JSON pole ID zvolených skupin; null = uživatel ještě nevybíral
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   events       Event[]

@@ -65,6 +65,14 @@ export async function POST(request: NextRequest) {
   }
   if (!userId) return NextResponse.json({ error: "Přihlaste se" }, { status: 401 });
 
+  // Přihlášený uživatel bez uložených skupin: uložíme mu výběr z tohoto okna do profilu.
+  if (userId !== ANON_SUB) {
+    const row = await prisma.user.findUnique({ where: { id: userId }, select: { selectedGroupIds: true } });
+    if (row && row.selectedGroupIds == null) {
+      await prisma.user.update({ where: { id: userId }, data: { selectedGroupIds: JSON.stringify(grp) } });
+    }
+  }
+
   const code = await signOAuthToken(
     "code",
     { sub: userId, cid: b.client_id, ru: b.redirect_uri, cc: b.code_challenge, grp },
