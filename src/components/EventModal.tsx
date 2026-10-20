@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { EventItem, Subject, StudentGroup, EventType, ScheduleSlot } from "@/types";
-import { toLocalDateString, getEventDateString } from "@/lib/formatters";
+import { toLocalDateString, getEventDateString, formatCzechDate } from "@/lib/formatters";
 import {
   X,
   Calendar,
@@ -61,6 +61,10 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [weight, setWeight] = useState<number | string>("");
   const [endDate, setEndDate] = useState("");
   const [dayOff, setDayOff] = useState<{ title: string } | null>(null);
+  // Testy, které už v dny nově zadávaného volna jsou – uživatel rozhoduje, co s nimi
+  const [conflictTests, setConflictTests] = useState<
+    Array<{ id: string; title: string; date: string; subject: string | null; group: string | null }> | null
+  >(null);
 
   // Validation state
   const [isCheckingTimetable, setIsCheckingTimetable] = useState(false);
@@ -285,9 +289,10 @@ export const EventModal: React.FC<EventModalProps> = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent | null, conflictAction?: "keep" | "delete") => {
+    e?.preventDefault();
     setFormError(null);
+    setConflictTests(null);
 
     if (!title.trim()) {
       setFormError("Vyplňte prosím název události.");
@@ -333,6 +338,7 @@ export const EventModal: React.FC<EventModalProps> = ({
         payload.startTime = null;
         payload.endTime = null;
         if (!editEvent && endDate && endDate > date) payload.endDate = endDate;
+        if (conflictAction) payload.conflictAction = conflictAction;
       } else if (!editEvent && recurrenceType !== "NONE") {
         payload.recurrenceType = recurrenceType;
         payload.untilEndOfSchoolYear = untilEndOfSchoolYear;
@@ -349,6 +355,12 @@ export const EventModal: React.FC<EventModalProps> = ({
       });
 
       const data = await res.json();
+
+      if (res.status === 409 && data.conflict) {
+        setConflictTests(data.tests);
+        setIsSubmitting(false);
+        return;
+      }
 
       if (!res.ok) {
         setFormError(data.error || "Při ukládání došlo k chybě.");
@@ -390,12 +402,63 @@ export const EventModal: React.FC<EventModalProps> = ({
         </div>
 
         {/* Form Body (Scrollable) */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        <form onSubmit={(e) => handleSubmit(e)} className="flex flex-col flex-1 min-h-0 overflow-hidden">
           <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
           {formError && (
             <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs sm:text-sm flex items-start space-x-2">
               <AlertCircle className="w-4 h-4 text-rose-500 mt-0.5 shrink-0" />
               <span>{formError}</span>
+            </div>
+          )}
+
+          {conflictTests && (
+            <div className="p-4 rounded-xl bg-amber-500/15 border border-amber-500/50 text-amber-900 dark:text-amber-200 text-xs sm:text-sm space-y-3">
+              <div className="flex items-start space-x-2">
+                <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                <div className="space-y-1.5">
+                  <strong className="block">
+                    V dny volna {conflictTests.length === 1 ? "je už naplánován test" : "jsou už naplánované testy"}:
+                  </strong>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    {conflictTests.map((t) => (
+                      <li key={t.id}>
+                        {formatCzechDate(t.date)} – {t.subject ? `${t.subject}: ` : ""}
+                        {t.title}
+                        {t.group ? ` (${t.group})` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                  <span className="block">Co s tím?</span>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => handleSubmit(null, "keep")}
+                  className="flex-1 px-3 py-2 rounded-lg border border-amber-600/50 font-bold hover:bg-amber-500/20 disabled:opacity-50"
+                >
+                  Přidat volno, testy ponechat
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => handleSubmit(null, "delete")}
+                  className="flex-1 px-3 py-2 rounded-lg bg-rose-600 text-white font-bold hover:bg-rose-700 disabled:opacity-50"
+                >
+                  Přidat volno a testy smazat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConflictTests(null)}
+                  className="px-3 py-2 rounded-lg border border-slate-300 dark:border-[#2A316E] font-bold"
+                >
+                  Zpět
+                </button>
+              </div>
+              <p className="text-[11px] opacity-80">
+                Ponechané testy zůstanou v Termínovce výrazně označené jako nesedící s volnem – můžete je pak přesunout.
+              </p>
             </div>
           )}
 

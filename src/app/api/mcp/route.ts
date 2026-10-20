@@ -40,6 +40,7 @@ const eventFields = {
   endTime: { type: "string", description: "HH:MM" },
   weight: { type: "number", description: "Předpokládaná váha známky 1–10" },
   endDate: { type: "string", description: "Jen u DAYOFF při vytvoření: poslední den volna (YYYY-MM-DD); vytvoří se volno na každý pracovní den od date do endDate" },
+  conflictAction: { type: "string", enum: ["keep", "delete"], description: "Jen u DAYOFF: co s testy, které v dny volna už jsou. Nejdřív nech volno vytvořit bez tohoto pole – pokud tam testy jsou, vrátí se seznam; zeptej se uživatele a teprve pak zadej keep (testy ponechat) nebo delete (testy smazat)" },
   confirmDayOff: { type: "boolean", description: "Jen u TEST: true = uživatel výslovně potvrdil, že test chce i přes zadané volno v ten den" },
   description: { type: "string" },
   attachmentUrl: { type: "string", description: "Odkaz (např. Microsoft Teams)" },

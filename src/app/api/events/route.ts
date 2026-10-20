@@ -6,6 +6,16 @@ import { weekdaysBetween } from "@/lib/dayoff";
 
 export const dynamic = "force-dynamic";
 
+// Testy v daných dnech, kterých se volno týká (volno bez skupiny platí pro všechny testy).
+async function findConflictingTests(dates: string[], groupId: string | null) {
+  const tests = await prisma.event.findMany({
+    where: { type: "TEST", date: { in: dates.map((d) => new Date(`${d}T00:00:00.000Z`)) } },
+    include: { subject: true, group: true },
+    orderBy: { date: "asc" },
+  });
+  return tests.filter((t) => !groupId || !t.groupId || t.group?.isDefaultAll || t.groupId === groupId);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -160,6 +170,41 @@ export async function POST(request: NextRequest) {
       datesToCreate.push(...days);
     }
 
+    // Volno nesmí potichu přebít už naplánované testy: nejdřív se zeptáme, co s nimi (keep / delete)
+    let conflictingTests: Awaited<ReturnType<typeof findConflictingTests>> = [];
+    if (isDayOff) {
+      conflictingTests = await findConflictingTests(datesToCreate, cleanGroupId);
+      const action = body.conflictAction;
+      if (conflictingTests.length > 0 && action !== "keep" && action !== "delete") {
+        const list = conflictingTests
+          .map((t) => `${t.date.toISOString().slice(0, 10)} ${t.subject?.name ? t.subject.name + ": " : ""}${t.title}`)
+          .join("; ");
+        return NextResponse.json(
+          {
+            error: `V dny volna je už naplánován test: ${list}. Zeptejte se, co s ním: ponechat (conflictAction "keep") nebo smazat (conflictAction "delete").`,
+            conflict: true,
+            tests: conflictingTests.map((t) => ({
+              id: t.id,
+              title: t.title,
+              date: t.date.toISOString().slice(0, 10),
+              subject: t.subject?.name ?? null,
+              group: t.group?.name ?? null,
+            })),
+          },
+          { status: 409 }
+        );
+      }
+      if (action === "delete") {
+        const forbidden = conflictingTests.filter((t) => user.role !== "ADMIN" && t.createdById !== user.userId);
+        if (forbidden.length > 0) {
+          return NextResponse.json(
+            { error: `Tyto testy může smazat jen jejich autor nebo admin: ${forbidden.map((t) => t.title).join(", ")}. Zvolte ponechání testů.` },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     const seriesRecurringId =
       (recurrenceType !== "NONE" || isDayOff) && datesToCreate.length > 1
         ? crypto.randomUUID()
@@ -228,8 +273,14 @@ export async function POST(request: NextRequest) {
       createdEvents.push(ev);
     }
 
+    let deletedTests = 0;
+    if (isDayOff && body.conflictAction === "delete" && conflictingTests.length > 0) {
+      const res = await prisma.event.deleteMany({ where: { id: { in: conflictingTests.map((t) => t.id) } } });
+      deletedTests = res.count;
+    }
+
     return NextResponse.json(
-      { success: true, event: createdEvents[0], count: createdEvents.length },
+      { success: true, event: createdEvents[0], count: createdEvents.length, deletedTests },
       { status: 201 }
     );
   } catch (error: any) {

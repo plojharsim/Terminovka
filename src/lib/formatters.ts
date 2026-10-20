@@ -175,6 +175,28 @@ export function getRelativeTimeCzech(dateInput: string | Date): {
 }
 
 /**
+ * Testy, které připadají na den, kdy je zadané volno (stejné pravidlo skupin jako ve findDayOff:
+ * volno bez skupiny / test bez skupiny se potkají vždy, jinak jen u stejné skupiny).
+ */
+export function getDayOffConflictIds(
+  evList: Array<{ id: string; type: string; date: string | Date; groupId?: string | null; group?: { isDefaultAll?: boolean } | null }>
+): Set<string> {
+  const wholeClass = (e: { groupId?: string | null; group?: { isDefaultAll?: boolean } | null }) =>
+    !e.groupId || !!e.group?.isDefaultAll;
+  const dayOffs = evList.filter((e) => e.type === "DAYOFF");
+  const result = new Set<string>();
+  if (dayOffs.length === 0) return result;
+  for (const t of evList) {
+    if (t.type !== "TEST") continue;
+    const day = getEventDateString(t.date);
+    if (dayOffs.some((d) => getEventDateString(d.date) === day && (wholeClass(d) || wholeClass(t) || d.groupId === t.groupId))) {
+      result.add(t.id);
+    }
+  }
+  return result;
+}
+
+/**
  * Calculates primary count (one-off events) and recurring count (distinct recurring series).
  * Each recurring event series is counted exactly once.
  */

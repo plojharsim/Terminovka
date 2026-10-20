@@ -21,6 +21,7 @@ import {
   toLocalDateString,
   getEventDateString,
   computeEventCounts,
+  getDayOffConflictIds,
   formatRecurringEventsCount,
 } from "@/lib/formatters";
 import {
@@ -103,6 +104,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const currentWeekType = mounted ? getWeekType(todayDate) : "ODD";
 
   // Filter today's timetable slots (taking week parity and multi-group selection into account)
+  // Testy, které připadají na den volna
+  const dayOffConflictIds = useMemo(() => getDayOffConflictIds(events), [events]);
+
   const todaySlots = useMemo(() => {
     return slots
       .filter((s) => s.dayOfWeek === timetableDayToShow)
@@ -661,6 +665,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           </span>
                         )}
 
+                        {dayOffConflictIds.has(ev.id) && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-500 text-[#0D0F26] animate-pulse">
+                            ⚠ Nesedí – je volno
+                          </span>
+                        )}
+
                         {/* Type Badge */}
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase ${
@@ -854,7 +864,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               : "bg-slate-400"
                           }`}
                         />
-                        <span className="truncate">{e.title}</span>
+                        <span className="truncate">
+                          {dayOffConflictIds.has(e.id) && "⚠️ "}
+                          {e.title}
+                        </span>
                       </div>
                     ))
                   )}

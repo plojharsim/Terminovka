@@ -13,6 +13,7 @@ import {
 interface CalendarMonthViewProps {
   events: EventItem[];
   onSelectEvent: (event: EventItem) => void;
+  conflictIds?: Set<string>; // testy připadající na volno
 }
 
 const CZ_MONTH_NAMES = [
@@ -33,6 +34,7 @@ const CZ_MONTH_NAMES = [
 export const CalendarMonthView: React.FC<CalendarMonthViewProps> = ({
   events,
   onSelectEvent,
+  conflictIds,
 }) => {
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date(2026, 9, 1));
   const [todayStr, setTodayStr] = useState<string>("");
@@ -226,14 +228,17 @@ export const CalendarMonthView: React.FC<CalendarMonthViewProps> = ({
                     <button
                       key={ev.id}
                       onClick={() => onSelectEvent(ev)}
-                      title={`${ev.title} (${typeCfg.label}${ev.weight != null ? `, váha ${ev.weight}` : ""})`}
-                      className="w-full text-left p-1 rounded-md text-[10px] sm:text-xs font-medium border truncate block transition-colors duration-150 hover:brightness-110 hover:shadow-xs active:scale-[0.99]"
+                      title={`${ev.title} (${typeCfg.label}${ev.weight != null ? `, váha ${ev.weight}` : ""})${conflictIds?.has(ev.id) ? " – NESEDÍ: v tento den je volno" : ""}`}
+                      className={`w-full text-left p-1 rounded-md text-[10px] sm:text-xs font-medium border truncate block transition-colors duration-150 hover:brightness-110 hover:shadow-xs active:scale-[0.99] ${
+                        conflictIds?.has(ev.id) ? "ring-2 ring-amber-500 animate-pulse" : ""
+                      }`}
                       style={{
                         backgroundColor: `${ev.subject?.color || typeCfg.colorHex}22`,
                         borderColor: `${ev.subject?.color || typeCfg.colorHex}55`,
                         color: ev.subject?.color || typeCfg.colorHex,
                       }}
                     >
+                      {conflictIds?.has(ev.id) && <span className="mr-1">⚠️</span>}
                       <span className="font-extrabold mr-1 font-mono">
                         {ev.subject?.code || "📌"}
                       </span>

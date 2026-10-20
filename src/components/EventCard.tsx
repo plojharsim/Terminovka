@@ -18,6 +18,7 @@ import {
   Users,
   Repeat,
   Download,
+  TriangleAlert,
 } from "lucide-react";
 
 interface EventCardProps {
@@ -25,6 +26,7 @@ interface EventCardProps {
   currentUser: UserSession | null;
   onEdit: (event: EventItem) => void;
   onDelete: (eventId: string) => void;
+  dayOffConflict?: boolean;
 }
 
 export const EventCard: React.FC<EventCardProps> = ({
@@ -32,6 +34,7 @@ export const EventCard: React.FC<EventCardProps> = ({
   currentUser,
   onEdit,
   onDelete,
+  dayOffConflict = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const typeConfig = EVENT_TYPE_CONFIG[event.type] || EVENT_TYPE_CONFIG.OTHER;
@@ -42,8 +45,20 @@ export const EventCard: React.FC<EventCardProps> = ({
     (currentUser.role === "ADMIN" || currentUser.userId === event.createdById);
 
   return (
-    <div className="bg-white dark:bg-[#131738] rounded-xl border border-slate-200 dark:border-[#222752] p-6 sm:p-7 flex flex-col justify-between transition-all duration-150 hover:border-slate-400 dark:hover:border-[#DDA300]/60 shadow-xs hover:shadow-md">
+    <div
+      className={`bg-white dark:bg-[#131738] rounded-xl border p-6 sm:p-7 flex flex-col justify-between transition-all duration-150 shadow-xs hover:shadow-md ${
+        dayOffConflict
+          ? "border-amber-500 ring-2 ring-amber-500/40 dark:border-amber-400"
+          : "border-slate-200 dark:border-[#222752] hover:border-slate-400 dark:hover:border-[#DDA300]/60"
+      }`}
+    >
       <div>
+        {dayOffConflict && (
+          <div className="mb-3 flex items-start space-x-2 px-3 py-2 rounded-lg bg-amber-500/15 border border-amber-500/50 text-amber-800 dark:text-amber-300 text-xs font-bold animate-pulse">
+            <TriangleAlert className="w-4 h-4 shrink-0 mt-px" />
+            <span>Nesedí: v tento den je zadané volno. Zkontrolujte nebo přesuňte termín testu.</span>
+          </div>
+        )}
         {/* Top meta row: Subject, Type & Group */}
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5">
           <div className="flex flex-wrap items-center gap-2">

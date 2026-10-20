@@ -20,7 +20,7 @@ import { AdminPanelModal } from "@/components/AdminPanelModal";
 import { DashboardView } from "@/components/DashboardView";
 import { GroupSelectionModal } from "@/components/GroupSelectionModal";
 import { DeleteRecurringModal } from "@/components/DeleteRecurringModal";
-import { formatCzechDate, getEventDateString, toLocalDateString, computeEventCounts } from "@/lib/formatters";
+import { formatCzechDate, getEventDateString, toLocalDateString, computeEventCounts, getDayOffConflictIds } from "@/lib/formatters";
 import {
   Search,
   Plus,
@@ -190,6 +190,9 @@ export default function HomePage() {
   useEffect(() => {
     loadAllData();
   }, []);
+
+  // Testy, které připadají na den volna (pro výrazné označení)
+  const dayOffConflictIds = useMemo(() => getDayOffConflictIds(events), [events]);
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -627,6 +630,7 @@ export default function HomePage() {
                           currentUser={currentUser}
                           onEdit={handleEditEvent}
                           onDelete={handleDeleteEvent}
+                          dayOffConflict={dayOffConflictIds.has(ev.id)}
                         />
                       ))}
                     </div>
@@ -641,6 +645,7 @@ export default function HomePage() {
         {currentTab === "calendar" && (
           <CalendarMonthView
             events={filteredEvents}
+            conflictIds={dayOffConflictIds}
             onSelectEvent={(ev) => {
               setSearch(ev.title);
               setCurrentTab("list");
