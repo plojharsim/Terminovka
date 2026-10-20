@@ -44,7 +44,8 @@ export async function PUT(
       weight,
     } = body;
 
-    const cleanSubjectId = subjectId && subjectId !== "none" ? subjectId : null;
+    const isDayOff = type === "DAYOFF";
+    const cleanSubjectId = !isDayOff && subjectId && subjectId !== "none" ? subjectId : null;
     const cleanGroupId = groupId && groupId !== "ALL" ? groupId : null;
 
     const requiresTimetableLesson = type === "TEST";
@@ -74,8 +75,8 @@ export async function PUT(
 
     const eventDate = new Date(`${date}T00:00:00.000Z`);
 
-    const finalPeriod = isTimetableMatch && period ? Number(period) : null;
-    const finalHasSpecificTime = isTimetableMatch ? Boolean(hasSpecificTime) : false;
+    const finalPeriod = !isDayOff && isTimetableMatch && period ? Number(period) : null;
+    const finalHasSpecificTime = !isDayOff && isTimetableMatch ? Boolean(hasSpecificTime) : false;
     const finalStartTime = isTimetableMatch && hasSpecificTime ? startTime || null : null;
     const finalEndTime = isTimetableMatch && hasSpecificTime ? endTime || null : null;
 
@@ -92,7 +93,7 @@ export async function PUT(
         description: description ? description.trim() : null,
         attachmentUrl: attachmentUrl ? attachmentUrl.trim() : null,
         attachmentName: attachmentName ? attachmentName.trim() : null,
-        weight: weight != null && weight !== "" ? Number(weight) : null,
+        weight: !isDayOff && weight != null && weight !== "" ? Number(weight) : null,
         subjectId: cleanSubjectId,
         groupId: cleanGroupId,
       },

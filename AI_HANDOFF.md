@@ -89,6 +89,10 @@ Slouží ke sledování písemek (`TEST`), domácích úkolů (`HOMEWORK`), term
 - Test (`TEST`) lze naplánovat pouze na den, kdy se daný předmět skutečně vyučuje podle rozvrhu (včetně kontroly sudého/lichého týdne `EVEN`/`ODD`).
 - Úkoly (`HOMEWORK`) a ostatní akce (`OTHER`) lze uložit na jakýkoliv den (zobrazí se jen informativní žluté upozornění, že v ten den hodina není).
 
+### E2. Volno (`type = "DAYOFF"`)
+- Typ „Volno“ nemá předmět, hodinu ani váhu. Při vytvoření lze zadat `endDate` – vznikne událost na každý pracovní den (Po–Pá) v rozsahu, spojené společným `recurringId` (smazání celé série = smazání celého volna). Logika: `weekdaysBetween` a `findDayOff` v `src/lib/dayoff.ts`.
+- `/api/timetable/check` vrací navíc `dayOff` (nebo `null`). `EventModal` u testu v takový den ukazuje žlutou výstrahu (neblokuje uložení); MCP `create_event` test na volno odmítne, dokud AI nepošle `confirmDayOff: true` po souhlasu uživatele.
+
 ### F. Přílohy a Microsoft Teams (`/api/upload` a `EventModal.tsx`)
 - K událostem lze buď nahrát soubor až do 50 MB (ukládá se do **Vercel Blob** pokud je přítomen `BLOB_READ_WRITE_TOKEN` / OIDC, případně lokálně do `data/uploads`), nebo vložit odkaz na **Microsoft Teams** / webové materiály.
 

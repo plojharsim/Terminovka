@@ -48,6 +48,15 @@ export const EVENT_TYPE_CONFIG: Record<
     colorHex: "#7c3aed",
     dotBg: "bg-violet-500",
   },
+  DAYOFF: {
+    label: "Volno",
+    pluralLabel: "Volno",
+    badgeBg: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+    badgeText: "text-emerald-700",
+    badgeBorder: "border-emerald-200 dark:border-emerald-900/60",
+    colorHex: "#059669",
+    dotBg: "bg-emerald-500",
+  },
 };
 
 const CZ_MONTHS = [

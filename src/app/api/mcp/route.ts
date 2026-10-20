@@ -6,6 +6,7 @@ import { PUT as eventPUT, DELETE as eventDELETE } from "@/app/api/events/[id]/ro
 import { GET as metaGET } from "@/app/api/meta/route";
 import { prisma } from "@/lib/prisma";
 import { parseGroupIds } from "@/lib/groups";
+import { findDayOff } from "@/lib/dayoff";
 import { validateEventAgainstTimetable } from "@/lib/timetable";
 import { GET as checkGET } from "@/app/api/timetable/check/route";
 
@@ -29,7 +30,7 @@ const visible = (item: { groupId?: unknown; group?: Json | null }, ctx: Ctx) =>
 
 const eventFields = {
   title: { type: "string", description: "Název události" },
-  type: { type: "string", enum: ["TEST", "HOMEWORK", "DEADLINE", "OTHER"], description: "TEST = písemka (jen v den výuky předmětu), HOMEWORK = úkol, DEADLINE = termín odevzdání, OTHER = ostatní" },
+  type: { type: "string", enum: ["TEST", "HOMEWORK", "DEADLINE", "OTHER", "DAYOFF"], description: "TEST = písemka (jen v den výuky předmětu), HOMEWORK = úkol, DEADLINE = termín odevzdání, OTHER = ostatní, DAYOFF = volno (bez předmětu a hodiny; více dní přes endDate)" },
   date: { type: "string", description: "Datum ve formátu YYYY-MM-DD" },
   subjectId: { type: "string", description: "ID předmětu (z get_overview), nebo vynechat" },
   groupId: { type: "string", description: "ID skupiny (z get_overview); vynechat nebo 'ALL' = celá třída" },
@@ -38,6 +39,8 @@ const eventFields = {
   startTime: { type: "string", description: "HH:MM" },
   endTime: { type: "string", description: "HH:MM" },
   weight: { type: "number", description: "Předpokládaná váha známky 1–10" },
+  endDate: { type: "string", description: "Jen u DAYOFF při vytvoření: poslední den volna (YYYY-MM-DD); vytvoří se volno na každý pracovní den od date do endDate" },
+  confirmDayOff: { type: "boolean", description: "Jen u TEST: true = uživatel výslovně potvrdil, že test chce i přes zadané volno v ten den" },
   description: { type: "string" },
   attachmentUrl: { type: "string", description: "Odkaz (např. Microsoft Teams)" },
   attachmentName: { type: "string" },
@@ -78,7 +81,7 @@ const TOOLS = [
   },
   {
     name: "create_event",
-    description: "Vytvoří událost jménem přihlášeného uživatele (u nepřihlášeného selže). Postup u TEST: zjisti předmět, datum a skupinu, zavolej check_timetable, nech UŽIVATELE vybrat konkrétní hodinu a teprve pak vytvoř; hodinu ani skupinu nikdy nevybírej za něj. Lze nastavit opakování (série se sdílí přes recurringId).",
+    description: "Vytvoří událost jménem přihlášeného uživatele (u nepřihlášeného selže). Volno (DAYOFF) lze zadat i na více dní přes endDate. Postup u TEST: zjisti předmět, datum a skupinu, zavolej check_timetable, nech UŽIVATELE vybrat konkrétní hodinu a teprve pak vytvoř; hodinu ani skupinu nikdy nevybírej za něj. Lze nastavit opakování (série se sdílí přes recurringId).",
     inputSchema: {
       type: "object",
       properties: {
@@ -132,6 +135,20 @@ async function prepareEventArgs(args: Json): Promise<Json> {
   const subjectId = typeof args.subjectId === "string" && args.subjectId !== "none" ? args.subjectId : null;
   const groupId = typeof args.groupId === "string" && args.groupId !== "ALL" ? args.groupId : null;
   const period = args.period != null && args.period !== "" ? Number(args.period) : null;
+
+  if (type === "DAYOFF") {
+    // Volno nemá předmět, hodinu ani váhu
+    return { ...args, subjectId: undefined, period: undefined, weight: undefined, hasSpecificTime: false };
+  }
+
+  if (type === "TEST" && date && args.confirmDayOff !== true) {
+    const dayOff = await findDayOff(date, groupId);
+    if (dayOff) {
+      throw new Error(
+        `Pozor, dne ${date} je zadané volno („${dayOff.title}“). Upozorni uživatele; pokud test i přesto chce, zavolej znovu s confirmDayOff: true.`
+      );
+    }
+  }
 
   if (type === "TEST" && !subjectId) {
     throw new Error("Test musí mít předmět (subjectId z get_overview). Zeptej se uživatele, z jakého předmětu test je.");

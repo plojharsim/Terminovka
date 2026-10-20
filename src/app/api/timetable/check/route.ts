@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateEventAgainstTimetable } from "@/lib/timetable";
+import { findDayOff } from "@/lib/dayoff";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,9 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await validateEventAgainstTimetable(date, subjectId, groupId);
-    return NextResponse.json(result);
+    // Je-li v ten den zadané volno, přibalíme upozornění (web i AI jím varují u testů)
+    const dayOff = await findDayOff(date, groupId);
+    return NextResponse.json({ ...result, dayOff });
   } catch (error: any) {
     console.error("Timetable check error:", error);
     return NextResponse.json(

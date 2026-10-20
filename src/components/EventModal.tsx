@@ -59,6 +59,8 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [recurrenceCount, setRecurrenceCount] = useState<number>(4);
   const [untilEndOfSchoolYear, setUntilEndOfSchoolYear] = useState<boolean>(true);
   const [weight, setWeight] = useState<number | string>("");
+  const [endDate, setEndDate] = useState("");
+  const [dayOff, setDayOff] = useState<{ title: string } | null>(null);
 
   // Validation state
   const [isCheckingTimetable, setIsCheckingTimetable] = useState(false);
@@ -133,6 +135,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setRecurrenceCount(4);
       setUntilEndOfSchoolYear(true);
       setWeight(editEvent.weight != null ? editEvent.weight : "");
+      setEndDate("");
     } else {
       const initialSubj = subjects.length > 0 ? subjects[0].id : "none";
       setTitle("");
@@ -149,6 +152,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setRecurrenceCount(4);
       setUntilEndOfSchoolYear(true);
       setWeight("");
+      setEndDate("");
     }
     setUploadError(null);
     setTimetableError(null);
@@ -159,7 +163,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   useEffect(() => {
     if (!isOpen || !date) return;
 
-    if (!subjectId || subjectId === "none") {
+    if (!subjectId || subjectId === "none" || type === "DAYOFF") {
       setTimetableError(null);
       setAvailableSlots([]);
       return;
@@ -213,7 +217,24 @@ export const EventModal: React.FC<EventModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [date, subjectId, groupId, isOpen, period]);
+  }, [date, subjectId, groupId, isOpen, period, type]);
+
+  // Varování: test nelze rozumně plánovat na den, který je zadaný jako volno
+  useEffect(() => {
+    if (!isOpen || !date || type !== "TEST") return;
+    let cancelled = false;
+    fetch(`/api/timetable/check?date=${encodeURIComponent(date)}${
+      groupId && groupId !== "ALL" ? `&groupId=${encodeURIComponent(groupId)}` : ""
+    }`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setDayOff(data.dayOff || null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, date, groupId, type]);
 
   if (!isOpen) return null;
 
@@ -273,6 +294,11 @@ export const EventModal: React.FC<EventModalProps> = ({
       return;
     }
 
+    if (type === "DAYOFF" && endDate && endDate < date) {
+      setFormError("Konec volna nemůže být dřív než jeho začátek.");
+      return;
+    }
+
     const requiresTimetableLesson = type === "TEST";
 
     if (subjectId !== "none" && requiresTimetableLesson && timetableError) {
@@ -299,7 +325,15 @@ export const EventModal: React.FC<EventModalProps> = ({
         weight: weight !== "" && !isNaN(Number(weight)) ? Number(weight) : null,
       };
 
-      if (!editEvent && recurrenceType !== "NONE") {
+      if (type === "DAYOFF") {
+        payload.subjectId = null;
+        payload.period = null;
+        payload.weight = null;
+        payload.hasSpecificTime = false;
+        payload.startTime = null;
+        payload.endTime = null;
+        if (!editEvent && endDate && endDate > date) payload.endDate = endDate;
+      } else if (!editEvent && recurrenceType !== "NONE") {
         payload.recurrenceType = recurrenceType;
         payload.untilEndOfSchoolYear = untilEndOfSchoolYear;
         payload.recurrenceCount = recurrenceCount;
@@ -370,7 +404,7 @@ export const EventModal: React.FC<EventModalProps> = ({
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
               Typ události
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button
                 type="button"
                 onClick={() => setType("TEST")}
@@ -407,6 +441,18 @@ export const EventModal: React.FC<EventModalProps> = ({
                 <span className="w-2 h-2 rounded-full bg-violet-500" />
                 <span>Ostatní</span>
               </button>
+              <button
+                type="button"
+                onClick={() => setType("DAYOFF")}
+                className={`py-2 px-3 rounded-xl text-xs font-bold border flex items-center justify-center space-x-1.5 transition ${
+                  type === "DAYOFF"
+                    ? "bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-400 ring-2 ring-emerald-500/30"
+                    : "bg-white dark:bg-[#0D0F26] border-slate-200 dark:border-[#23295C] text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#1C2152]"
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Volno</span>
+              </button>
             </div>
           </div>
 
@@ -426,6 +472,7 @@ export const EventModal: React.FC<EventModalProps> = ({
           </div>
 
           {/* Grade Weight (Optional) */}
+          {type !== "DAYOFF" && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
@@ -469,8 +516,10 @@ export const EventModal: React.FC<EventModalProps> = ({
               </div>
             </div>
           </div>
+          )}
 
           {/* Subject & Group Row */}
+          {type !== "DAYOFF" && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
@@ -510,13 +559,14 @@ export const EventModal: React.FC<EventModalProps> = ({
               </select>
             </div>
           </div>
+          )}
 
           {/* Date Picker & Recurrence Row */}
           <div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                  Datum události *
+                  {type === "DAYOFF" ? "Volno od *" : "Datum události *"}
                 </label>
                 <input
                   type="date"
@@ -527,8 +577,24 @@ export const EventModal: React.FC<EventModalProps> = ({
                 />
               </div>
 
-              {/* Recurrence Option (Only for new events) */}
-              {!editEvent ? (
+              {type === "DAYOFF" ? (
+                !editEvent ? (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                      Volno do <span className="font-normal lowercase text-slate-400">(volitelné)</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      min={date}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#2A316E] bg-white dark:bg-[#0D0F26] text-slate-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-[#DDA300]"
+                    />
+                  </div>
+                ) : (
+                  <div />
+                )
+              ) : /* Recurrence Option (Only for new events) */ !editEvent ? (
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center space-x-1.5">
                     <Repeat className="w-3.5 h-3.5 text-[#DDA300]" />
@@ -551,7 +617,7 @@ export const EventModal: React.FC<EventModalProps> = ({
             </div>
 
             {/* Recurrence count options if active */}
-            {!editEvent && recurrenceType !== "NONE" && (
+            {type !== "DAYOFF" && !editEvent && recurrenceType !== "NONE" && (
               <div className="mt-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2 text-xs">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-amber-800 dark:text-amber-300 font-bold">
@@ -612,7 +678,23 @@ export const EventModal: React.FC<EventModalProps> = ({
           </div>
 
           {/* Timetable Validation Notice / Slot Selector */}
-          {subjectId !== "none" && (
+          {type === "TEST" && dayOff && (
+            <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-300 text-xs sm:text-sm flex items-start space-x-2">
+              <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+              <span>
+                <strong>Pozor, v tento den má být volno</strong> ({dayOff.title}). Opravdu chcete na tento den
+                naplánovat test? Uložit ho můžete, ale zkontrolujte datum.
+              </span>
+            </div>
+          )}
+
+          {type === "DAYOFF" && (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Volno se zapíše na každý pracovní den v rozsahu (víkendy se přeskočí). U testů v tyto dny se pak zobrazí varování.
+            </p>
+          )}
+
+          {type !== "DAYOFF" && subjectId !== "none" && (
             <div className="rounded-2xl border border-slate-200 dark:border-[#23295C] p-3.5 text-xs sm:text-sm bg-slate-50 dark:bg-[#0D0F26]/70 transition-all">
               {isCheckingTimetable ? (
                 <div className="flex items-center space-x-2 text-slate-400">
@@ -698,7 +780,7 @@ export const EventModal: React.FC<EventModalProps> = ({
           )}
 
           {/* Custom Time Options (if Bez předmětu) */}
-          {subjectId === "none" && (
+          {type !== "DAYOFF" && subjectId === "none" && (
             <div className="bg-slate-50 dark:bg-[#0D0F26]/70 p-3.5 rounded-2xl border border-slate-200 dark:border-[#23295C] space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">

@@ -670,6 +670,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               ? "bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300"
                               : ev.type === "DEADLINE"
                               ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                              : ev.type === "DAYOFF"
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
                               : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                           }`}
                         >
@@ -847,6 +849,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               ? "bg-blue-500"
                               : e.type === "DEADLINE"
                               ? "bg-[#DDA300]"
+                              : e.type === "DAYOFF"
+                              ? "bg-emerald-500"
                               : "bg-slate-400"
                           }`}
                         />

@@ -1,4 +1,4 @@
-export type EventType = "TEST" | "HOMEWORK" | "OTHER" | "DEADLINE";
+export type EventType = "TEST" | "HOMEWORK" | "OTHER" | "DEADLINE" | "DAYOFF";
 
 export interface Subject {
   id: string;

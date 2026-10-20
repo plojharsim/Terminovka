@@ -80,6 +80,7 @@ export async function generateICalFeed(options: ICalOptions = {}): Promise<strin
       HOMEWORK: "📘 ÚKOL",
       DEADLINE: "📘 ÚKOL",
       OTHER: "📌 UDÁLOST",
+      DAYOFF: "🏖️ VOLNO",
     };
 
     const typeName = typePrefixes[ev.type] || "📌 UDÁLOST";

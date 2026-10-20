@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { validateEventAgainstTimetable } from "@/lib/timetable";
+import { weekdaysBetween } from "@/lib/dayoff";
 
 export const dynamic = "force-dynamic";
 
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Vyplňte název události" }, { status: 400 });
     }
 
-    if (!type || !["TEST", "HOMEWORK", "DEADLINE", "OTHER"].includes(type)) {
+    if (!type || !["TEST", "HOMEWORK", "DEADLINE", "OTHER", "DAYOFF"].includes(type)) {
       return NextResponse.json({ error: "Neplatný typ události" }, { status: 400 });
     }
 
@@ -104,7 +105,8 @@ export async function POST(request: NextRequest) {
 
     // Timetable Validation Rule: strictly enforced for TEST (písemky).
     // For DEADLINE and OTHER, allow adding even if the subject is not taught that day (e.g. deadline odevzdání).
-    const cleanSubjectId = subjectId && subjectId !== "none" ? subjectId : null;
+    const isDayOff = type === "DAYOFF";
+    const cleanSubjectId = !isDayOff && subjectId && subjectId !== "none" ? subjectId : null;
     const cleanGroupId = groupId && groupId !== "ALL" ? groupId : null;
 
     const requiresTimetableLesson = type === "TEST";
@@ -145,8 +147,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Volno může trvat více dní: vznikne jedna událost na každý pracovní den, spojené do série
+    if (isDayOff && body.endDate) {
+      if (body.endDate < date) {
+        return NextResponse.json({ error: "Konec volna nemůže být dřív než jeho začátek" }, { status: 400 });
+      }
+      const days = weekdaysBetween(date, body.endDate);
+      if (days.length === 0) {
+        return NextResponse.json({ error: "V zadaném rozsahu není žádný pracovní den" }, { status: 400 });
+      }
+      datesToCreate.length = 0;
+      datesToCreate.push(...days);
+    }
+
     const seriesRecurringId =
-      recurrenceType !== "NONE" && datesToCreate.length > 1
+      (recurrenceType !== "NONE" || isDayOff) && datesToCreate.length > 1
         ? crypto.randomUUID()
         : null;
 
@@ -179,8 +194,8 @@ export async function POST(request: NextRequest) {
       }
 
       const eventDate = new Date(`${curDateStr}T00:00:00.000Z`);
-      const finalPeriod = isCurTimetableMatch && period ? Number(period) : null;
-      const finalHasSpecificTime = isCurTimetableMatch ? Boolean(hasSpecificTime) : false;
+      const finalPeriod = !isDayOff && isCurTimetableMatch && period ? Number(period) : null;
+      const finalHasSpecificTime = !isDayOff && isCurTimetableMatch ? Boolean(hasSpecificTime) : false;
       const finalStartTime = isCurTimetableMatch && hasSpecificTime ? startTime || null : null;
       const finalEndTime = isCurTimetableMatch && hasSpecificTime ? endTime || null : null;
 
@@ -196,7 +211,7 @@ export async function POST(request: NextRequest) {
           description: description ? description.trim() : null,
           attachmentUrl: attachmentUrl ? attachmentUrl.trim() : null,
           attachmentName: attachmentName ? attachmentName.trim() : null,
-          weight: weight != null && weight !== "" ? Number(weight) : null,
+          weight: !isDayOff && weight != null && weight !== "" ? Number(weight) : null,
           recurringId: seriesRecurringId,
           subjectId: cleanSubjectId,
           groupId: cleanGroupId,
