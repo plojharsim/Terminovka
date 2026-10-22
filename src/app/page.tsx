@@ -19,6 +19,7 @@ import { CalendarMonthView } from "@/components/CalendarMonthView";
 import { AdminPanelModal } from "@/components/AdminPanelModal";
 import { DashboardView } from "@/components/DashboardView";
 import { GroupSelectionModal } from "@/components/GroupSelectionModal";
+import { OPEN_DEPRECATION_EVENT } from "@/lib/deprecation";
 import { DeleteRecurringModal } from "@/components/DeleteRecurringModal";
 import { formatCzechDate, getEventDateString, toLocalDateString, computeEventCounts, getDayOffConflictIds } from "@/lib/formatters";
 import {
@@ -238,9 +239,9 @@ export default function HomePage() {
     setIsEventModalOpen(true);
   };
 
+  // Termínovka je zastaralá: místo formuláře pro novou událost se znovu ukáže upozornění na nástupce
   const handleCreateNewEvent = () => {
-    setEditingEvent(null);
-    setIsEventModalOpen(true);
+    window.dispatchEvent(new Event(OPEN_DEPRECATION_EVENT));
   };
 
   const handleDeleteTimetableSlot = async (slotId: string) => {

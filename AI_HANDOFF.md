@@ -141,3 +141,10 @@ npm run dev
 - **Test přes AI:** `create_event`/`update_event` (`prepareEventArgs` v `src/app/api/mcp/route.ts`) vyžadují u `TEST` předmět a konkrétní hodinu (`period`), která v ten den v rozvrhu je; při chybějící/špatné hodině nebo nejednoznačné skupině vrátí chybu se seznamem dostupných hodin a AI se musí zeptat uživatele. Web hodinu předvybírá automaticky, AI ne. U ostatních typů se hodina ověřuje jen, když ji AI zadá.
 - Bez nastaveného `AUTH_SECRET` OAuth nefunguje (záměrně bez veřejného fallbacku). Zrušení přístupu = odpojení konektoru v Claude, nebo změna `AUTH_SECRET` (odhlásí i všechny uživatele).
 - **Pozor – sdílená DB:** v produkční databázi jsou i cizí tabulky `personal_os_kv` a `personal_os_media`. `prisma db push` je proto chce smazat a bez `--accept-data-loss` skončí chybou (`scripts/auto-build.js` to jen zaloguje a build pokračuje). Nové tabulky se proto zakládají ručně aditivním SQL (`CREATE TABLE IF NOT EXISTS`), nikdy `--accept-data-loss`.
+
+---
+
+## 8. Ukončení provozu – nástupce „Škola by plojharsim“
+- Termínovka je **zastaralá**. Nástupce: https://skola.plojharsim.cz/prihlaseni.
+- `src/components/DeprecationNotice.tsx` (v `layout.tsx`, tedy na každé stránce kromě `/oauth/*`): zelená lišta nahoře + popup před vstupem (křížek / „Pokračovat jen pro čtení“; zavření platí pro relaci v `sessionStorage`).
+- Přidávání nových událostí je vypnuté: `POST /api/events` vrací 403 (`CREATING_EVENTS_DISABLED` v `src/app/api/events/route.ts`; platí i pro volno a MCP) a tlačítka „Přidat termín“ v UI jen znovu otevřou popup. Úpravy a mazání existujících událostí fungují dál.

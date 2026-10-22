@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { DeprecationNotice } from "@/components/DeprecationNotice";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,7 +37,10 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full font-sans selection:bg-[#DDA300] selection:text-[#0D0F26] flex flex-col bg-[#0D0F26] text-white transition-colors duration-200">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <DeprecationNotice />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { validateEventAgainstTimetable } from "@/lib/timetable";
 import { weekdaysBetween } from "@/lib/dayoff";
+import { DEPRECATION_BLOCKED_MESSAGE } from "@/lib/deprecation";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +78,14 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Termínovka je zastaralá – přidávání nových událostí (včetně volna a přes AI/MCP) je vypnuto.
+// Pro obnovení stačí přepnout na false.
+const CREATING_EVENTS_DISABLED = true;
+
 export async function POST(request: NextRequest) {
+  if (CREATING_EVENTS_DISABLED) {
+    return NextResponse.json({ error: DEPRECATION_BLOCKED_MESSAGE, deprecated: true }, { status: 403 });
+  }
   try {
     const user = await getCurrentUser();
     if (!user) {
